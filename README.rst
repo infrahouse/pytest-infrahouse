@@ -11,7 +11,7 @@ pytest-infrahouse
     :alt: Python versions
 
 .. image:: https://github.com/infrahouse/pytest-infrahouse/actions/workflows/main.yml/badge.svg
-    :target: https://github.com/infrahouse/pytest-infrahouse/actions/workflows/main.yml
+    :target: https://github.com/infrahouse/pytest-infrahouse/actions/workflows/python-CD.yml
     :alt: See Build Status on GitHub Actions
 
 A set of fixtures to use with pytest
