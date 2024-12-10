@@ -10,7 +10,7 @@ pytest-infrahouse
     :target: https://pypi.org/project/pytest-infrahouse
     :alt: Python versions
 
-.. image:: https://github.com/infrahouse/pytest-infrahouse/actions/workflows/main.yml/badge.svg
+.. image:: https://github.com/infrahouse/pytest-infrahouse/actions/workflows/python-CD.yml/badge.svg
     :target: https://github.com/infrahouse/pytest-infrahouse/actions/workflows/python-CD.yml
     :alt: See Build Status on GitHub Actions
 
