@@ -1,0 +1,2 @@
+recursive-include src/pytest_infrahouse/data *
+recursive-exclude src/pytest_infrahouse/data */.terraform/* terraform.tfvars

@@ -1,0 +1,10 @@
+site_name: pytest-infrahouse
+site_description: A set of fixtures to use with pytest
+site_author: Oleksandr Kuzminskyi
+
+theme: readthedocs
+
+repo_url: https://github.com/infrahouse/pytest-infrahouse
+
+pages:
+- Home: index.md
