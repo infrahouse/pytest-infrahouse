@@ -15,7 +15,7 @@ LOG = logging.getLogger()
 def terraform_apply(
     path,
     destroy_after=True,
-    json_output=False,
+    json_output=True,
     var_file="terraform.tfvars",
     enable_trace=False,
 ):
