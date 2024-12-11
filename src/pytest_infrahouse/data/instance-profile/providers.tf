@@ -8,7 +8,8 @@ provider "aws" {
   region = var.region
   default_tags {
     tags = {
-      "created_by" : "infrahouse/pytest-infrahouse/service-network"
+      "created_by" : "infrahouse/pytest-infrahouse/instance-profile"
     }
+
   }
 }

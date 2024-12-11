@@ -116,7 +116,7 @@ def terraform_data():
 @pytest.fixture(scope="session")
 def service_network(keep_after, test_role_arn, aws_region):
     with as_file(
-            files("pytest_infrahouse").joinpath("data/service-network")
+        files("pytest_infrahouse").joinpath("data/service-network")
     ) as module_dir:
         # Create service network
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
@@ -129,9 +129,33 @@ def service_network(keep_after, test_role_arn, aws_region):
                 )
             )
         with terraform_apply(
-                module_dir,
-                destroy_after=not keep_after,
-                json_output=True,
-                enable_trace=False,
+            module_dir,
+            destroy_after=not keep_after,
+            json_output=True,
+            enable_trace=False,
+        ) as tf_output:
+            yield tf_output
+
+
+@pytest.fixture(scope="session")
+def instance_profile(keep_after, test_role_arn, aws_region):
+    with as_file(
+        files("pytest_infrahouse").joinpath("data/instance-profile")
+    ) as module_dir:
+        with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
+            fp.write(
+                dedent(
+                    f"""
+                    region   = "{aws_region}"
+                    role_arn = "{test_role_arn}"
+                    """
+                )
+            )
+
+        with terraform_apply(
+            module_dir,
+            destroy_after=not keep_after,
+            json_output=True,
+            enable_trace=False,
         ) as tf_output:
             yield tf_output

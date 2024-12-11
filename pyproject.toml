@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pytest-infrahouse"
 description = "A set of fixtures to use with pytest"
-version = "0.1.0"
+version = "0.2.0"
 readme = "README.rst"
 requires-python = ">=3.8"
 authors = [
@@ -38,6 +38,7 @@ dependencies = [
     "black ~= 24.10",
     "boto3 ~= 1.35",
     "build ~= 1.2",
+    "bump2version ~= 1.0",
     "isort ~= 5.13",
     "pytest ~= 8.3",
 ]
