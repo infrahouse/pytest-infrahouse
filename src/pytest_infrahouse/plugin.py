@@ -120,14 +120,9 @@ def service_network(keep_after, test_role_arn, aws_region):
     ) as module_dir:
         # Create service network
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
-            fp.write(
-                dedent(
-                    f"""
-                    role_arn = "{test_role_arn}"
-                    region   = "{aws_region}"
-                    """
-                )
-            )
+            fp.write(f'region = "{aws_region}"')
+            if test_role_arn:
+                fp.write(f'role_arn = "{test_role_arn}"')
         with terraform_apply(
             module_dir,
             destroy_after=not keep_after,
@@ -143,14 +138,9 @@ def instance_profile(keep_after, test_role_arn, aws_region):
         files("pytest_infrahouse").joinpath("data/instance-profile")
     ) as module_dir:
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
-            fp.write(
-                dedent(
-                    f"""
-                    region   = "{aws_region}"
-                    role_arn = "{test_role_arn}"
-                    """
-                )
-            )
+            fp.write(f'region = "{aws_region}"')
+            if test_role_arn:
+                fp.write(f'role_arn = "{test_role_arn}"')
 
         with terraform_apply(
             module_dir,
