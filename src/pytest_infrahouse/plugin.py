@@ -118,6 +118,11 @@ def iam_client(boto3_session, aws_region):
     return boto3_session.client("iam", region_name=aws_region)
 
 
+@pytest.fixture()
+def secretsmanager_client(boto3_session, aws_region):
+    return boto3_session.client("secretsmanager", region_name=aws_region)
+
+
 @contextmanager
 def terraform_data():
     with as_file(files("pytest_infrahouse.data.").joinpath("")) as datadir_path:
