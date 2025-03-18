@@ -5,7 +5,7 @@ provider "aws" {
   }
   default_tags {
     tags = {
-      "created_by" : "infrahouse/terraform-aws-bookstack" # GitHub repository that created a resource
+      "created_by" : "infrahouse/pytest-infrahouse/ses"
     }
 
   }
