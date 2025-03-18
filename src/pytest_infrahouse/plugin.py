@@ -233,3 +233,20 @@ def elasticsearch(service_network, keep_after, aws_region, test_role_arn, test_z
                 yield tf_output
                 if not keep_after:
                     module_dir.joinpath(bootstrap_flag_file).unlink(missing_ok=True)
+
+@pytest.fixture(scope="session")
+def ses(aws_region, test_zone_name, test_role_arn, keep_after):
+    with as_file(
+            files("pytest_infrahouse").joinpath("data/ses")
+    ) as module_dir:
+        with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
+            fp.write(f'region = "{aws_region}"\n')
+            fp.write(f'test_zone = "{test_zone_name}"\n')
+            if test_role_arn:
+                fp.write(f'role_arn = "{test_role_arn}"\n')
+    with terraform_apply(
+            module_dir,
+            destroy_after=not keep_after,
+            json_output=True,
+    ) as tf_output:
+        yield tf_output
