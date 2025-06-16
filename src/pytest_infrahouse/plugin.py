@@ -54,9 +54,11 @@ def keep_after(request):
 def test_role_arn(request):
     return request.config.getoption("--test-role-arn")
 
+
 @pytest.fixture(scope="session")
 def test_zone_name(request):
     return request.config.getoption("--test-zone-name")
+
 
 @pytest.fixture(scope="session")
 def aws_region(request):
@@ -131,13 +133,15 @@ def terraform_data():
 
 
 @pytest.fixture(scope="session")
-def service_network(keep_after, test_role_arn, aws_region):
+def service_network(request, keep_after, test_role_arn, aws_region):
+    calling_test = osp.basename(request.node.path)
     with as_file(
         files("pytest_infrahouse").joinpath("data/service-network")
     ) as module_dir:
         # Create service network
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
             fp.write(f'region = "{aws_region}"\n')
+            fp.write(f'calling_test = "{calling_test}"\n')
             if test_role_arn:
                 fp.write(f'role_arn = "{test_role_arn}"\n')
         with terraform_apply(
@@ -150,12 +154,14 @@ def service_network(keep_after, test_role_arn, aws_region):
 
 
 @pytest.fixture(scope="session")
-def instance_profile(keep_after, test_role_arn, aws_region):
+def instance_profile(request, keep_after, test_role_arn, aws_region):
+    calling_test = osp.basename(request.node.path)
     with as_file(
         files("pytest_infrahouse").joinpath("data/instance-profile")
     ) as module_dir:
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
             fp.write(f'region = "{aws_region}"\n')
+            fp.write(f'calling_test = "{calling_test}"\n')
             if test_role_arn:
                 fp.write(f'role_arn = "{test_role_arn}"\n')
 
@@ -169,31 +175,37 @@ def instance_profile(keep_after, test_role_arn, aws_region):
 
 
 @pytest.fixture(scope="session")
-def jumphost(service_network, keep_after, aws_region, test_role_arn, test_zone_name):
+def jumphost(
+    request, service_network, keep_after, aws_region, test_role_arn, test_zone_name
+):
+    calling_test = osp.basename(request.node.path)
     subnet_public_ids = service_network["subnet_public_ids"]["value"]
     subnet_private_ids = service_network["subnet_private_ids"]["value"]
 
-    with as_file(
-            files("pytest_infrahouse").joinpath("data/jumphost")
-    ) as module_dir:
+    with as_file(files("pytest_infrahouse").joinpath("data/jumphost")) as module_dir:
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
             fp.write(f'region = "{aws_region}"\n')
-            fp.write(f'subnet_public_ids  = {json.dumps(subnet_public_ids)}\n')
-            fp.write(f'subnet_private_ids = {json.dumps(subnet_private_ids)}\n')
+            fp.write(f'calling_test = "{calling_test}"\n')
+            fp.write(f"subnet_public_ids  = {json.dumps(subnet_public_ids)}\n")
+            fp.write(f"subnet_private_ids = {json.dumps(subnet_private_ids)}\n")
             fp.write(f'test_zone = "{test_zone_name}"\n')
             if test_role_arn:
                 fp.write(f'role_arn = "{test_role_arn}"\n')
         with terraform_apply(
-                module_dir,
-                destroy_after=not keep_after,
-                json_output=True,
+            module_dir,
+            destroy_after=not keep_after,
+            json_output=True,
         ) as tf_output:
             yield tf_output
 
 
 @pytest.fixture(scope="session")
-def elasticsearch(service_network, keep_after, aws_region, test_role_arn, test_zone_name):
-    bootstrap_flag_file =".bootstrapped"
+def elasticsearch(
+    request, service_network, keep_after, aws_region, test_role_arn, test_zone_name
+):
+    calling_test = osp.basename(request.node.path)
+    bootstrap_flag_file = ".bootstrapped"
+
     def cluster_bootstrapped(path: Path) -> bool:
         return path.joinpath(bootstrap_flag_file).exists()
 
@@ -201,52 +213,59 @@ def elasticsearch(service_network, keep_after, aws_region, test_role_arn, test_z
     internet_gateway_id = service_network["internet_gateway_id"]["value"]
 
     with as_file(
-            files("pytest_infrahouse").joinpath("data/elasticsearch")
+        files("pytest_infrahouse").joinpath("data/elasticsearch")
     ) as module_dir:
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
             fp.write(f'region = "{aws_region}"\n')
-            fp.write(f'subnet_public_ids  = {json.dumps(subnet_public_ids)}\n')
+            fp.write(f'calling_test = "{calling_test}"\n')
+            fp.write(f"subnet_public_ids  = {json.dumps(subnet_public_ids)}\n")
             fp.write(f'test_zone = "{test_zone_name}"\n')
             fp.write(f'internet_gateway_id = "{internet_gateway_id}"\n')
-            fp.write(f'bootstrap_mode = {str(not cluster_bootstrapped(module_dir)).lower()}\n')
+            fp.write(
+                f"bootstrap_mode = {str(not cluster_bootstrapped(module_dir)).lower()}\n"
+            )
             if test_role_arn:
                 fp.write(f'role_arn = "{test_role_arn}"\n')
         with terraform_apply(
-                module_dir,
-                destroy_after=not keep_after,
-                json_output=True,
+            module_dir,
+            destroy_after=not keep_after,
+            json_output=True,
         ):
             module_dir.joinpath(bootstrap_flag_file).touch()
             with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
                 fp.write(f'region = "{aws_region}"\n')
-                fp.write(f'subnet_public_ids  = {json.dumps(subnet_public_ids)}\n')
+                fp.write(f'calling_test = "{calling_test}"\n')
+                fp.write(f"subnet_public_ids  = {json.dumps(subnet_public_ids)}\n")
                 fp.write(f'test_zone = "{test_zone_name}"\n')
                 fp.write(f'internet_gateway_id = "{internet_gateway_id}"\n')
-                fp.write(f'bootstrap_mode = {str(not cluster_bootstrapped(module_dir)).lower()}\n')
+                fp.write(
+                    f"bootstrap_mode = {str(not cluster_bootstrapped(module_dir)).lower()}\n"
+                )
                 if test_role_arn:
                     fp.write(f'role_arn = "{test_role_arn}"\n')
             with terraform_apply(
-                    module_dir,
-                    destroy_after=not keep_after,
-                    json_output=True,
+                module_dir,
+                destroy_after=not keep_after,
+                json_output=True,
             ) as tf_output:
                 yield tf_output
                 if not keep_after:
                     module_dir.joinpath(bootstrap_flag_file).unlink(missing_ok=True)
 
+
 @pytest.fixture(scope="session")
-def ses(aws_region, test_zone_name, test_role_arn, keep_after):
-    with as_file(
-            files("pytest_infrahouse").joinpath("data/ses")
-    ) as module_dir:
+def ses(request, aws_region, test_zone_name, test_role_arn, keep_after):
+    calling_test = osp.basename(request.node.path)
+    with as_file(files("pytest_infrahouse").joinpath("data/ses")) as module_dir:
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
             fp.write(f'region = "{aws_region}"\n')
+            fp.write(f'calling_test = "{calling_test}"\n')
             fp.write(f'test_zone = "{test_zone_name}"\n')
             if test_role_arn:
                 fp.write(f'role_arn = "{test_role_arn}"\n')
     with terraform_apply(
-            module_dir,
-            destroy_after=not keep_after,
-            json_output=True,
+        module_dir,
+        destroy_after=not keep_after,
+        json_output=True,
     ) as tf_output:
         yield tf_output

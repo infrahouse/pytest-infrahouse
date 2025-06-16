@@ -9,3 +9,4 @@ variable "environment" {
   default = "development"
 }
 variable "internet_gateway_id" {}
+variable "calling_test" {}
