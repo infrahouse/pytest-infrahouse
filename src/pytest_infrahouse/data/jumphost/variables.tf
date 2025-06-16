@@ -11,3 +11,4 @@ variable "environment" {
 variable "subnet_public_ids" {}
 variable "subnet_private_ids" {}
 variable "test_zone" {}
+variable "calling_test" {}
