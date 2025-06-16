@@ -1,6 +1,6 @@
 module "service-network" {
   source                = "registry.infrahouse.com/infrahouse/service-network/aws"
-  version               = "~> 2.3"
+  version               = "~> 3.0"
   service_name          = "service-network"
   vpc_cidr_block        = "10.1.0.0/16"
   management_cidr_block = "10.1.0.0/16"
