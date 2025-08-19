@@ -23,7 +23,7 @@ module "service-network" {
     },
     {
       cidr                    = "10.1.2.0/24"
-      availability-zone       = data.aws_availability_zones.available.names[length(data.aws_availability_zones.available.names) - 1]
+      availability-zone       = data.aws_availability_zones.available.names[local.last_az_idx]
       map_public_ip_on_launch = true
       create_nat              = false
       forward_to              = null
@@ -44,7 +44,7 @@ module "service-network" {
     },
     {
       cidr                    = "10.1.102.0/24"
-      availability-zone       = data.aws_availability_zones.available.names[length(data.aws_availability_zones.available.names) - 1]
+      availability-zone       = data.aws_availability_zones.available.names[local.last_az_idx]
       map_public_ip_on_launch = false
       create_nat              = false
       forward_to              = "10.1.0.0/24"  # to a network with NAT
