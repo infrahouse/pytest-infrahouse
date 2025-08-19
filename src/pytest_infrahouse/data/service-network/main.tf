@@ -1,6 +1,6 @@
 module "service-network" {
   source                = "registry.infrahouse.com/infrahouse/service-network/aws"
-  version               = "~> 2.3"
+  version               = "3.1.2"
   service_name          = "service-network"
   vpc_cidr_block        = "10.1.0.0/16"
   management_cidr_block = "10.1.0.0/16"
@@ -18,17 +18,14 @@ module "service-network" {
       cidr                    = "10.1.1.0/24"
       availability-zone       = data.aws_availability_zones.available.names[1]
       map_public_ip_on_launch = true
-      create_nat              = true
+      create_nat              = false
       forward_to              = null
     },
     {
       cidr = "10.1.2.0/24"
-      availability-zone = element(
-        data.aws_availability_zones.available.names,
-        length(data.aws_availability_zones.available.names) - 1
-      )
+      availability-zone = data.aws_availability_zones.available.names[local.last_az_idx]
       map_public_ip_on_launch = true
-      create_nat              = true
+      create_nat              = false
       forward_to              = null
     },
     {
@@ -43,17 +40,14 @@ module "service-network" {
       availability-zone       = data.aws_availability_zones.available.names[1]
       map_public_ip_on_launch = false
       create_nat              = false
-      forward_to              = "10.1.1.0/24"
+      forward_to              = "10.1.0.0/24"  # to a network with NAT
     },
     {
       cidr = "10.1.102.0/24"
-      availability-zone = element(
-        data.aws_availability_zones.available.names,
-        length(data.aws_availability_zones.available.names) - 1
-      )
+      availability-zone = data.aws_availability_zones.available.names[local.last_az_idx]
       map_public_ip_on_launch = false
       create_nat              = false
-      forward_to              = "10.1.2.0/24"
+      forward_to              = "10.1.0.0/24"  # to a network with NAT
     }
   ]
 }
