@@ -3,12 +3,32 @@ import logging
 import os
 import time
 from contextlib import contextmanager
-from subprocess import PIPE, Popen, CalledProcessError
+from subprocess import PIPE, Popen, CalledProcessError, check_call
 
 DEFAULT_OPEN_ENCODING = "utf8"
 DEFAULT_ENCODING = DEFAULT_OPEN_ENCODING
 DEFAULT_PROGRESS_INTERVAL = 10
 LOG = logging.getLogger()
+
+MAX_RETRIES = 5
+BACKOFF_SECONDS = 10
+
+
+def run_with_retries(cmd, cwd=None, env=None, stdout=None, stderr=None):
+    attempt = 1
+    while True:
+        try:
+            check_call(cmd, cwd=cwd, env=env, stdout=stdout, stderr=stderr)
+            LOG.info("Command succeeded on attempt %d", attempt)
+            return
+        except CalledProcessError as e:
+            if attempt >= MAX_RETRIES:
+                LOG.error("Command failed after %d attempts", attempt)
+                raise
+            sleep_time = BACKOFF_SECONDS * attempt
+            LOG.warning(f"Attempt %d failed with %s. Retrying in %ds...", attempt, e, sleep_time)
+            time.sleep(sleep_time)
+            attempt += 1
 
 
 @contextmanager
@@ -81,7 +101,7 @@ def terraform_apply(
                 if enable_trace
                 else None
             )
-            execute(
+            run_with_retries(
                 [
                     "terraform",
                     "destroy",
