@@ -35,6 +35,11 @@ jobs:
                   role-session-name: "terraform-ci"
                   aws-region: "us-west-2"
 
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_wrapper: false
+
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v4
               with:
