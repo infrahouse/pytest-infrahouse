@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from contextlib import contextmanager
-from subprocess import PIPE, Popen, CalledProcessError, check_call
+from subprocess import PIPE, CalledProcessError, Popen, check_call
 
 DEFAULT_OPEN_ENCODING = "utf8"
 DEFAULT_ENCODING = DEFAULT_OPEN_ENCODING
@@ -26,7 +26,9 @@ def run_with_retries(cmd, cwd=None, env=None, stdout=None, stderr=None):
                 LOG.error("Command failed after %d attempts", attempt)
                 raise
             sleep_time = BACKOFF_SECONDS * attempt
-            LOG.warning(f"Attempt %d failed with %s. Retrying in %ds...", attempt, e, sleep_time)
+            LOG.warning(
+                f"Attempt %d failed with %s. Retrying in %ds...", attempt, e, sleep_time
+            )
             time.sleep(sleep_time)
             attempt += 1
 
