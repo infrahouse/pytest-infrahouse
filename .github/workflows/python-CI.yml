@@ -9,12 +9,20 @@ on:  # yamllint disable-line rule:truthy
 env:
     ROLE_ARN: "arn:aws:iam::303467602807:role/pytest-tester"
 
+permissions:
+    id-token: write
+    contents: read
+
+concurrency:
+    group: aws-control
+    cancel-in-progress: false
+
 jobs:
     test:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+                python-version: ["3.10", "3.11", "3.12", "3.13"]
             fail-fast: false
 
         steps:
