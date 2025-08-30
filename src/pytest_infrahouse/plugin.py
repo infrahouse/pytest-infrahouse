@@ -1,15 +1,14 @@
 import json
 from contextlib import contextmanager
-from importlib.resources import files, as_file
+from importlib.resources import as_file, files
 from os import path as osp
 from pathlib import Path
 from textwrap import dedent
 
-from .terraform import terraform_apply
-
-
 import boto3
 import pytest
+
+from .terraform import terraform_apply
 
 AWS_DEFAULT_REGION = "us-east-1"
 TEST_ZONE = "ci-cd.infrahouse.com"
