@@ -44,6 +44,7 @@ Features
   * ``jumphost`` - EC2 jumphost with proper networking
   * ``elasticsearch`` - Elasticsearch cluster setup
   * ``ses`` - Simple Email Service configuration
+  * ``probe_role`` - IAM role with limited permissions
 
 * **Terraform Integration**: Seamless integration with Terraform via ``terraform_apply`` context manager
 * **Resource Management**: Automatic cleanup of AWS resources after tests (configurable)
@@ -132,6 +133,7 @@ Available Fixtures
 * ``jumphost`` - EC2 jumphost in the service network
 * ``elasticsearch`` - Elasticsearch cluster
 * ``ses`` - Simple Email Service setup
+* ``probe_role`` - IAM role with limited permissions
 
 **Configuration Fixtures:**
 
