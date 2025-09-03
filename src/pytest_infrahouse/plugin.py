@@ -268,3 +268,22 @@ def ses(request, aws_region, test_zone_name, test_role_arn, keep_after):
         json_output=True,
     ) as tf_output:
         yield tf_output
+
+
+@pytest.fixture(scope="session")
+def probe_role(request, aws_region, test_role_arn, keep_after):
+    calling_test = osp.basename(request.node.path)
+    with as_file(files("pytest_infrahouse").joinpath("data/probe-role")) as module_dir:
+        with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
+            fp.write(f'region       = "{aws_region}"\n')
+            fp.write(f'calling_test = "{calling_test}"\n')
+            if test_role_arn:
+                fp.write(f'role_arn     = "{test_role_arn}"\n')
+                fp.write(f'trusted_arns = ["{test_role_arn}"]\n')
+
+    with terraform_apply(
+        module_dir,
+        destroy_after=not keep_after,
+        json_output=True,
+    ) as tf_output:
+        yield tf_output

@@ -42,6 +42,7 @@ clean: ## Clean build artifacts and cache files
 format: ## Format code with black and isort
 	black $(SRC_DIR) $(TEST_DIR)
 	isort $(SRC_DIR) $(TEST_DIR)
+	terraform fmt -recursive
 
 .PHONY: lint
 lint: ## Run linting checks
