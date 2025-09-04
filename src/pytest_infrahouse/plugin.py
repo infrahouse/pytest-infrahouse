@@ -10,7 +10,6 @@ import boto3
 import pytest
 from botocore.exceptions import ClientError
 
-
 from .terraform import terraform_apply
 
 AWS_DEFAULT_REGION = "us-east-1"
@@ -294,7 +293,9 @@ def probe_role(request, aws_region, test_role_arn, keep_after):
 
 
 @pytest.fixture(scope="session")
-def subzone(request, test_role_arn, aws_region, test_zone_name, keep_after, boto3_session):
+def subzone(
+    request, test_role_arn, aws_region, test_zone_name, keep_after, boto3_session
+):
     """
     Create DNS zone
     """
@@ -321,9 +322,9 @@ def subzone(request, test_role_arn, aws_region, test_zone_name, keep_after, boto
                 )
     try:
         with terraform_apply(
-                module_dir,
-                destroy_after=not keep_after,
-                json_output=True,
+            module_dir,
+            destroy_after=not keep_after,
+            json_output=True,
         ) as tf_output:
             zone_id = tf_output["subzone_id"]["value"]
             yield tf_output
@@ -346,11 +347,12 @@ def _delete_dns_zone(zone_id, route53_client):
         LOG.info(f"Deleting DNS zone {zone_id}")
         route53_client.delete_hosted_zone(Id=zone_id)
     except ClientError as e:
-        if e.response['Error']['Code'] == 'NoSuchHostedZone':
+        if e.response["Error"]["Code"] == "NoSuchHostedZone":
             LOG.info(f"DNS zone {zone_id} does not exist, skipping cleanup")
         else:
             LOG.error(f"Failed to cleanup DNS zone {zone_id}: {e}")
             raise e
+
 
 def _cleanup_dns_zone(zone_id, route53_client):
     """
@@ -363,21 +365,20 @@ def _cleanup_dns_zone(zone_id, route53_client):
         for page in paginator.paginate(HostedZoneId=zone_id):
             for record_set in page["ResourceRecordSets"]:
                 if record_set["Type"] not in ["NS", "SOA"]:
-                    LOG.info(f"Deleting DNS record: {record_set['Name']} ({record_set['Type']})")
+                    LOG.info(
+                        f"Deleting DNS record: {record_set['Name']} ({record_set['Type']})"
+                    )
                     route53_client.change_resource_record_sets(
                         HostedZoneId=zone_id,
                         ChangeBatch={
                             "Changes": [
-                                {
-                                    "Action": "DELETE",
-                                    "ResourceRecordSet": record_set
-                                }
+                                {"Action": "DELETE", "ResourceRecordSet": record_set}
                             ]
-                        }
+                        },
                     )
 
     except ClientError as e:
-        if e.response['Error']['Code'] == 'NoSuchHostedZone':
+        if e.response["Error"]["Code"] == "NoSuchHostedZone":
             LOG.info(f"DNS zone {zone_id} does not exist, skipping cleanup")
         else:
             LOG.error(f"Failed to cleanup DNS zone {zone_id}: {e}")
