@@ -45,6 +45,7 @@ Features
   * ``elasticsearch`` - Elasticsearch cluster setup
   * ``ses`` - Simple Email Service configuration
   * ``probe_role`` - IAM role with limited permissions
+  * ``subzone`` - Route53 DNS subzone for testing
 
 * **Terraform Integration**: Seamless integration with Terraform via ``terraform_apply`` context manager
 * **Resource Management**: Automatic cleanup of AWS resources after tests (configurable)
@@ -134,6 +135,7 @@ Available Fixtures
 * ``elasticsearch`` - Elasticsearch cluster
 * ``ses`` - Simple Email Service setup
 * ``probe_role`` - IAM role with limited permissions
+* ``subzone`` - Route53 DNS subzone for testing
 
 **Configuration Fixtures:**
 
