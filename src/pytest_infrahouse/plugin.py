@@ -1,4 +1,5 @@
 import json
+import logging
 from contextlib import contextmanager
 from importlib.resources import as_file, files
 from os import path as osp
@@ -7,11 +8,14 @@ from textwrap import dedent
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
+
 
 from .terraform import terraform_apply
 
 AWS_DEFAULT_REGION = "us-east-1"
 TEST_ZONE = "ci-cd.infrahouse.com"
+LOG = logging.getLogger()
 
 
 def pytest_addoption(parser):
@@ -287,3 +291,94 @@ def probe_role(request, aws_region, test_role_arn, keep_after):
         json_output=True,
     ) as tf_output:
         yield tf_output
+
+
+@pytest.fixture(scope="session")
+def subzone(request, test_role_arn, aws_region, test_zone_name, keep_after, boto3_session):
+    """
+    Create DNS zone
+    """
+    calling_test = osp.basename(request.node.path)
+    zone_id = None
+    with as_file(files("pytest_infrahouse").joinpath("data/subzone")) as module_dir:
+        with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
+            fp.write(
+                dedent(
+                    f"""
+                    parent_zone_name = "{test_zone_name}"
+                    region           = "{aws_region}"
+                    calling_test     = "{calling_test}"
+                    """
+                )
+            )
+            if test_role_arn:
+                fp.write(
+                    dedent(
+                        f"""
+                        role_arn = "{test_role_arn}"
+                        """
+                    )
+                )
+    try:
+        with terraform_apply(
+                module_dir,
+                destroy_after=not keep_after,
+                json_output=True,
+        ) as tf_output:
+            zone_id = tf_output["subzone_id"]["value"]
+            yield tf_output
+            if not keep_after:
+                _cleanup_dns_zone(zone_id, boto3_session.client("route53"))
+
+    finally:
+        if not keep_after and zone_id:
+            _cleanup_dns_zone(zone_id, boto3_session.client("route53"))
+            _delete_dns_zone(zone_id, boto3_session.client("route53"))
+
+
+def _delete_dns_zone(zone_id, route53_client):
+    """
+    Delete the zone itself
+    """
+    LOG.info(f"Cleaning up DNS zone {zone_id}")
+
+    try:
+        LOG.info(f"Deleting DNS zone {zone_id}")
+        route53_client.delete_hosted_zone(Id=zone_id)
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'NoSuchHostedZone':
+            LOG.info(f"DNS zone {zone_id} does not exist, skipping cleanup")
+        else:
+            LOG.error(f"Failed to cleanup DNS zone {zone_id}: {e}")
+            raise e
+
+def _cleanup_dns_zone(zone_id, route53_client):
+    """
+    Delete all records in the DNS zone
+    """
+    LOG.info(f"Cleaning up DNS zone {zone_id}")
+
+    try:
+        paginator = route53_client.get_paginator("list_resource_record_sets")
+        for page in paginator.paginate(HostedZoneId=zone_id):
+            for record_set in page["ResourceRecordSets"]:
+                if record_set["Type"] not in ["NS", "SOA"]:
+                    LOG.info(f"Deleting DNS record: {record_set['Name']} ({record_set['Type']})")
+                    route53_client.change_resource_record_sets(
+                        HostedZoneId=zone_id,
+                        ChangeBatch={
+                            "Changes": [
+                                {
+                                    "Action": "DELETE",
+                                    "ResourceRecordSet": record_set
+                                }
+                            ]
+                        }
+                    )
+
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'NoSuchHostedZone':
+            LOG.info(f"DNS zone {zone_id} does not exist, skipping cleanup")
+        else:
+            LOG.error(f"Failed to cleanup DNS zone {zone_id}: {e}")
+            raise e
