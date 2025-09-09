@@ -14,7 +14,15 @@ MAX_RETRIES = 5
 BACKOFF_SECONDS = 10
 
 
-def run_with_retries(cmd, cwd=None, env=None, stdout=None, stderr=None):
+def run_with_retries(
+    cmd,
+    cwd=None,
+    env=None,
+    stdout=None,
+    stderr=None,
+    max_retries=MAX_RETRIES,
+    backoff_seconds=BACKOFF_SECONDS,
+):
     attempt = 1
     while True:
         try:
@@ -22,10 +30,10 @@ def run_with_retries(cmd, cwd=None, env=None, stdout=None, stderr=None):
             LOG.info("Command succeeded on attempt %d", attempt)
             return
         except CalledProcessError as e:
-            if attempt >= MAX_RETRIES:
+            if attempt >= max_retries:
                 LOG.error("Command failed after %d attempts", attempt)
                 raise
-            sleep_time = BACKOFF_SECONDS * attempt
+            sleep_time = backoff_seconds * attempt
             LOG.warning(
                 f"Attempt %d failed with %s. Retrying in %ds...", attempt, e, sleep_time
             )
@@ -40,6 +48,8 @@ def terraform_apply(
     json_output=True,
     var_file="terraform.tfvars",
     enable_trace=False,
+    max_retries=MAX_RETRIES,
+    backoff_seconds=BACKOFF_SECONDS,
 ):
     """
     Run terraform init and apply, then return a generator.
@@ -58,6 +68,10 @@ def terraform_apply(
         Useful if you want to find out what API calls terraform makes and for other
         debugging.
     :type enable_trace: bool
+    :param max_retries: Maximum number of retries for terraform operations.
+    :type max_retries: int
+    :param backoff_seconds: Number of seconds to wait between retry attempts.
+    :type backoff_seconds: int
     :return: If json_output is true then yield the result from terraform_output otherwise nothing.
         Use it in the ``with`` block.
     :raise CalledProcessError: if either of terraform commands (except ``terraform destroy``)
@@ -115,6 +129,8 @@ def terraform_apply(
                 stderr=stderr,
                 cwd=path,
                 env=env,
+                max_retries=max_retries,
+                backoff_seconds=backoff_seconds,
             )
 
 
