@@ -183,7 +183,6 @@ def jumphost(
     keep_after,
     aws_region,
     subzone,
-    test_zone_name,
     test_role_arn,
 ):
     calling_test = osp.basename(request.node.path)
