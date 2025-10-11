@@ -1,6 +1,6 @@
 module "jumphost" {
   source                   = "registry.infrahouse.com/infrahouse/jumphost/aws"
-  version                  = "4.2.0"
+  version                  = "4.3.0"
   environment              = var.environment
   keypair_name             = aws_key_pair.jumphost.key_name
   route53_zone_id          = data.aws_route53_zone.cicd.zone_id
