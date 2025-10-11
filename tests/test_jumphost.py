@@ -9,7 +9,7 @@ def test_jumphost(
 ):
     subnet_public_ids = service_network["subnet_public_ids"]["value"]
     subnet_private_ids = service_network["subnet_private_ids"]["value"]
-    test_zone_id = subzone["zone_id"]["value"]
+    test_zone_id = subzone["subzone_id"]["value"]
 
     module_path = "src/pytest_infrahouse/data/jumphost"
     with open(osp.join(module_path, "terraform.tfvars"), "w") as fp:
