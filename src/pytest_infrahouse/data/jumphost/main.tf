@@ -3,8 +3,8 @@ module "jumphost" {
   version                  = "4.2.0"
   environment              = var.environment
   keypair_name             = aws_key_pair.jumphost.key_name
-  route53_zone_id          = data.aws_route53_zone.cicd.zone_id
-  subnet_ids               = var.subnet_public_ids
+  route53_zone_id          = var.test_zone_id
+  subnet_ids               = var.subnet_private_ids
   nlb_subnet_ids           = var.subnet_public_ids
   asg_min_size             = 1
   asg_max_size             = 1

@@ -178,11 +178,18 @@ def instance_profile(request, keep_after, test_role_arn, aws_region):
 
 @pytest.fixture(scope="session")
 def jumphost(
-    request, service_network, keep_after, aws_region, test_role_arn, test_zone_name
+    request,
+    service_network,
+    keep_after,
+    aws_region,
+    subzone,
+    test_zone_name,
+    test_role_arn,
 ):
     calling_test = osp.basename(request.node.path)
     subnet_public_ids = service_network["subnet_public_ids"]["value"]
     subnet_private_ids = service_network["subnet_private_ids"]["value"]
+    test_zone_id = subzone["zone_id"]["value"]
 
     with as_file(files("pytest_infrahouse").joinpath("data/jumphost")) as module_dir:
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
@@ -190,7 +197,7 @@ def jumphost(
             fp.write(f'calling_test = "{calling_test}"\n')
             fp.write(f"subnet_public_ids  = {json.dumps(subnet_public_ids)}\n")
             fp.write(f"subnet_private_ids = {json.dumps(subnet_private_ids)}\n")
-            fp.write(f'test_zone = "{test_zone_name}"\n')
+            fp.write(f'test_zone_id = "{test_zone_id}"\n')
             if test_role_arn:
                 fp.write(f'role_arn = "{test_role_arn}"\n')
         with terraform_apply(
@@ -383,3 +390,37 @@ def _cleanup_dns_zone(zone_id, route53_client):
         else:
             LOG.error(f"Failed to cleanup DNS zone {zone_id}: {e}")
             raise e
+
+
+@pytest.fixture(scope="session")
+def cleanup_ecs_task_definitions(boto3_session, aws_region, keep_after):
+    """Fixture to track and cleanup ECS task definitions created during tests."""
+    task_families = set()
+
+    def register_task_family(family_name):
+        """Register a task family for cleanup."""
+        task_families.add(family_name)
+
+    # Provide the registration function to the test
+    yield register_task_family
+
+    # Cleanup: Deregister and delete all task definitions for tracked families
+    if task_families and not keep_after:
+        ecs = boto3_session.client("ecs", region_name=aws_region)
+        for family in task_families:
+            LOG.info(f"Cleaning up task definitions for family: {family}")
+
+            # Collect all task definitions (ACTIVE and INACTIVE)
+            all_task_defs = []
+            for status in ["ACTIVE", "INACTIVE"]:
+                response = ecs.list_task_definitions(
+                    familyPrefix=family, status=status, sort="DESC"
+                )
+                all_task_defs.extend(response.get("taskDefinitionArns", []))
+
+            # Deregister and delete each task definition
+            for task_def_arn in all_task_defs:
+                ecs.deregister_task_definition(taskDefinition=task_def_arn)
+                LOG.info(f"Deregistered task definition: {task_def_arn}")
+                ecs.delete_task_definitions(taskDefinitions=[task_def_arn])
+                LOG.info(f"Deleted task definition: {task_def_arn}")
