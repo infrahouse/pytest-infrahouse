@@ -113,7 +113,22 @@ The plugin adds several command-line options::
     pytest --test-zone-name example.com          # Set DNS zone for tests
     pytest --aws-region us-west-2               # Set AWS region
     pytest --test-role-arn arn:aws:iam::123:role/test-role  # Set IAM role
+    pytest --test-role-duration 3600            # Session duration in seconds (default: 3600)
     pytest --keep-after                         # Don't destroy resources after tests
+
+Long-Running Tests
+~~~~~~~~~~~~~~~~~~
+
+For long-running Terraform tests (>1 hour), the plugin automatically refreshes AWS credentials:
+
+* When ``--test-role-arn`` is specified, credentials are automatically refreshed before expiration
+* Works around the 1-hour AWS limit for chained role assumptions
+* Allows tests to run indefinitely without credential expiration errors
+* The ``--test-role-duration`` option sets the duration for each credential refresh (default: 3600 seconds)
+
+**Note:** When role chaining (assuming a role from temporary credentials), AWS enforces
+a hard 1-hour maximum per session. The plugin detects this and automatically caps the
+duration at 3600 seconds, then refreshes credentials as needed.
 
 Available Fixtures
 ~~~~~~~~~~~~~~~~~~
@@ -141,6 +156,7 @@ Available Fixtures
 
 * ``aws_region`` - AWS region for tests
 * ``test_role_arn`` - IAM role ARN to assume
+* ``test_role_duration`` - Duration in seconds for assumed role sessions (default: 3600)
 * ``test_zone_name`` - Route53 zone name
 * ``keep_after`` - Whether to keep resources after tests
 

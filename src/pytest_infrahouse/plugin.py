@@ -1,6 +1,8 @@
 import json
 import logging
+import time
 from contextlib import contextmanager
+from datetime import timezone
 from importlib.resources import as_file, files
 from os import path as osp
 from pathlib import Path
@@ -8,7 +10,9 @@ from textwrap import dedent
 
 import boto3
 import pytest
+from botocore.credentials import RefreshableCredentials
 from botocore.exceptions import ClientError
+from botocore.session import Session as BotocoreSession
 
 from .terraform import terraform_apply
 
@@ -29,6 +33,16 @@ def pytest_addoption(parser):
         action="store",
         default=None,
         help=f"AWS IAM role ARN that will create resources. By default, don't assume any role.",
+    )
+    parser.addoption(
+        "--test-role-duration",
+        action="store",
+        default=3600,
+        help=(
+            "Duration in seconds for the assumed role session. "
+            "Max is 12h when assuming from long-term creds; "
+            "if role chaining, AWS hard-limits to 3600 (1h)."
+        )
     )
     parser.addoption(
         "--test-zone-name",
@@ -56,6 +70,9 @@ def keep_after(request):
 def test_role_arn(request):
     return request.config.getoption("--test-role-arn")
 
+@pytest.fixture(scope="session")
+def test_role_duration(request):
+    return int(request.config.getoption("--test-role-duration"))
 
 @pytest.fixture(scope="session")
 def test_zone_name(request):
@@ -68,28 +85,77 @@ def aws_region(request):
 
 
 @pytest.fixture(scope="session")
-def aws_iam_role(test_role_arn):
-    return (
-        boto3.client("sts").assume_role(
-            RoleArn=test_role_arn,
-            RoleSessionName=test_role_arn.split("/")[1],
-            DurationSeconds=12 * 3600,  # Maximum: 12 hours
+def boto3_session(test_role_arn, test_role_duration, aws_region):
+    """
+    Create a boto3 session with automatic credential refresh for long-running tests.
+
+    If test_role_arn is provided, this will create a session that automatically
+    refreshes credentials when they expire, allowing tests to run longer than
+    the 1-hour limit imposed by role chaining.
+
+    If starting from *chained* (temporary) credentials, caps DurationSeconds at 3600.
+
+    Pins STS to the provided region and sets session region.
+    """
+    if not test_role_arn:
+        # No role specified, use default credentials
+        return boto3.Session(region_name=aws_region)
+
+    # Helper: are we already using temp creds (i.e., chaining)?
+    base_sts = boto3.client("sts", region_name=aws_region)
+    caller = base_sts.get_caller_identity()  # does not require permissions beyond STS
+    # Arn looks like: arn:aws:sts::<acct>:assumed-role/RoleName/SessionName
+    arn = caller.get("Arn", "")
+    is_chaining = ":assumed-role/" in arn
+
+    # Enforce AWS limit under chaining
+    max_allowed = 3600 if is_chaining else test_role_duration
+    requested = int(test_role_duration)
+    duration = min(requested, max_allowed)
+
+    def _session_name() -> str:
+        base = test_role_arn.split("/")[-1] or "pytest"
+        # keep <=64 chars, add entropy
+        suffix = str(int(time.time()))
+        name = f"{base[:48]}-{suffix}"
+        return name[:64]
+
+    # Create a refresh function that will be called when credentials expire
+    def refresh_credentials():
+        LOG.info(
+            "Refreshing credentials for role=%s (requested=%ss, chaining=%s → using=%ss)",
+            test_role_arn, requested, is_chaining, duration,
         )
-        if test_role_arn
-        else None
+        resp = base_sts.assume_role(
+            RoleArn=test_role_arn,
+            RoleSessionName=_session_name(),
+            DurationSeconds=duration,
+        )
+        credentials = resp["Credentials"]
+        # Normalize to RFC3339 UTC with trailing Z
+        exp = credentials["Expiration"].astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        return {
+            "access_key": credentials["AccessKeyId"],
+            "secret_key": credentials["SecretAccessKey"],
+            "token": credentials["SessionToken"],
+            "expiry_time": exp,
+        }
+
+    # Create refreshable credentials
+    session_credentials = RefreshableCredentials.create_from_metadata(
+        metadata=refresh_credentials(),
+        refresh_using=refresh_credentials,
+        method="sts-assume-role",
     )
 
+    botocore_session = BotocoreSession()
+    # Prefer explicit config vs defaults
+    botocore_session.set_config_variable("region", aws_region)
+    botocore_session.set_config_variable("sts_regional_endpoints", "regional")
+    # Attach credentials (yes, this is private; stable in practice)
+    botocore_session._credentials = session_credentials
 
-@pytest.fixture(scope="session")
-def boto3_session(aws_iam_role):
-    kwargs = {}
-    if aws_iam_role:
-        kwargs = {
-            "aws_access_key_id": aws_iam_role["Credentials"]["AccessKeyId"],
-            "aws_secret_access_key": aws_iam_role["Credentials"]["SecretAccessKey"],
-            "aws_session_token": aws_iam_role["Credentials"]["SessionToken"],
-        }
-    return boto3.Session(**kwargs)
+    return boto3.Session(botocore_session=botocore_session, region_name=aws_region)
 
 
 @pytest.fixture(scope="session")
@@ -98,11 +164,13 @@ def ec2_client(boto3_session, aws_region):
 
 
 @pytest.fixture(scope="session")
-def ec2_client_map(ec2_client, boto3_session):
-    regions = [reg["RegionName"] for reg in ec2_client.describe_regions()["Regions"]]
-    ec2_map = {reg: boto3_session.client("ec2", region_name=reg) for reg in regions}
-
-    return ec2_map
+def ec2_client_map(boto3_session):
+    cache = {}
+    def get(region):
+        if region not in cache:
+            cache[region] = boto3_session.client("ec2", region_name=region)
+        return cache[region]
+    return get
 
 
 @pytest.fixture()
