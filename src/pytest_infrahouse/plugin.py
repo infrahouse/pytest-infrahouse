@@ -71,7 +71,9 @@ def aws_region(request):
 def aws_iam_role(test_role_arn):
     return (
         boto3.client("sts").assume_role(
-            RoleArn=test_role_arn, RoleSessionName=test_role_arn.split("/")[1]
+            RoleArn=test_role_arn,
+            RoleSessionName=test_role_arn.split("/")[1],
+            DurationSeconds=12 * 3600,  # Maximum: 12 hours
         )
         if test_role_arn
         else None
