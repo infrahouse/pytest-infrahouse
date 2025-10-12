@@ -13,6 +13,7 @@ def test_boto3_session_no_role_arn_smoke(aws_region):
     who = session.client("sts").get_caller_identity()
     assert "Account" in who and "Arn" in who
 
+
 def test_boto3_session_clients_work(boto3_session, aws_region):
     """
     Sanity: clients from the session can call AWS APIs (read-only).
@@ -23,7 +24,9 @@ def test_boto3_session_clients_work(boto3_session, aws_region):
     assert "UserId" in out and "Account" in out
 
 
-def test_boto3_session_refreshable_credentials_live(boto3_session, test_role_arn, aws_region):
+def test_boto3_session_refreshable_credentials_live(
+    boto3_session, test_role_arn, aws_region
+):
     """
     Asserts that the session returned by the fixture uses RefreshableCredentials
     when a role is provided, and that a refresh call actually obtains new metadata.
@@ -41,4 +44,6 @@ def test_boto3_session_refreshable_credentials_live(boto3_session, test_role_arn
     # Force a refresh (calls STS AssumeRole) and validate structure
     new_meta = creds._refresh_using()  # internal, but safe/non-destructive
     assert {"access_key", "secret_key", "token", "expiry_time"} <= set(new_meta.keys())
-    assert new_meta["expiry_time"].endswith("Z") or new_meta["expiry_time"].endswith("+00:00")
+    assert new_meta["expiry_time"].endswith("Z") or new_meta["expiry_time"].endswith(
+        "+00:00"
+    )

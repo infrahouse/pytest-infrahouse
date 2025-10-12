@@ -42,7 +42,7 @@ def pytest_addoption(parser):
             "Duration in seconds for the assumed role session. "
             "Max is 12h when assuming from long-term creds; "
             "if role chaining, AWS hard-limits to 3600 (1h)."
-        )
+        ),
     )
     parser.addoption(
         "--test-zone-name",
@@ -70,9 +70,11 @@ def keep_after(request):
 def test_role_arn(request):
     return request.config.getoption("--test-role-arn")
 
+
 @pytest.fixture(scope="session")
 def test_role_duration(request):
     return int(request.config.getoption("--test-role-duration"))
+
 
 @pytest.fixture(scope="session")
 def test_zone_name(request):
@@ -124,7 +126,10 @@ def boto3_session(test_role_arn, test_role_duration, aws_region):
     def refresh_credentials():
         LOG.info(
             "Refreshing credentials for role=%s (requested=%ss, chaining=%s → using=%ss)",
-            test_role_arn, requested, is_chaining, duration,
+            test_role_arn,
+            requested,
+            is_chaining,
+            duration,
         )
         resp = base_sts.assume_role(
             RoleArn=test_role_arn,
@@ -133,7 +138,13 @@ def boto3_session(test_role_arn, test_role_duration, aws_region):
         )
         credentials = resp["Credentials"]
         # Normalize to RFC3339 UTC with trailing Z
-        exp = credentials["Expiration"].astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        exp = (
+            credentials["Expiration"]
+            .astimezone(timezone.utc)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
         return {
             "access_key": credentials["AccessKeyId"],
             "secret_key": credentials["SecretAccessKey"],
@@ -166,10 +177,12 @@ def ec2_client(boto3_session, aws_region):
 @pytest.fixture(scope="session")
 def ec2_client_map(boto3_session):
     cache = {}
+
     def get(region):
         if region not in cache:
             cache[region] = boto3_session.client("ec2", region_name=region)
         return cache[region]
+
     return get
 
 
