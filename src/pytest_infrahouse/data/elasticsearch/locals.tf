@@ -1,3 +1,3 @@
 locals {
-  cluster_name = "main-cluster"
+  cluster_name = "main-cluster-${formatdate("YYYYMMDDhhmmss", timestamp())}"
 }
