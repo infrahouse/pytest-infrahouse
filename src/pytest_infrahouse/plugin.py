@@ -304,6 +304,7 @@ def elasticsearch(
     internet_gateway_id = service_network["internet_gateway_id"]["value"]
 
     test_zone_id = subzone["subzone_id"]["value"]
+    subdomain = subzone["subdomain"]["value"]
 
     with as_file(
         files("pytest_infrahouse").joinpath("data/elasticsearch")
@@ -315,6 +316,7 @@ def elasticsearch(
                 fp.write(f"subnet_public_ids  = {json.dumps(subnet_public_ids)}\n")
                 fp.write(f'test_zone_id = "{test_zone_id}"\n')
                 fp.write(f'internet_gateway_id = "{internet_gateway_id}"\n')
+                fp.write(f'cluster_name = "main-cluster-{subdomain}"\n')
                 fp.write(
                     f"bootstrap_mode = {str(not cluster_bootstrapped(module_dir)).lower()}\n"
                 )
@@ -333,6 +335,7 @@ def elasticsearch(
                     fp.write(f"subnet_public_ids  = {json.dumps(subnet_public_ids)}\n")
                     fp.write(f'test_zone_id = "{test_zone_id}"\n')
                     fp.write(f'internet_gateway_id = "{internet_gateway_id}"\n')
+                    fp.write(f'cluster_name = "main-cluster-{subdomain}"\n')
                     fp.write(
                         f"bootstrap_mode = {str(not cluster_bootstrapped(module_dir)).lower()}\n"
                     )

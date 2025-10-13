@@ -5,7 +5,7 @@ module "elasticsearch" {
     aws     = aws
     aws.dns = aws
   }
-  cluster_name           = local.cluster_name
+  cluster_name           = var.cluster_name
   cluster_master_count   = 3
   cluster_data_count     = 1
   environment            = var.environment

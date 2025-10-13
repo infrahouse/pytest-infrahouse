@@ -4,7 +4,7 @@ output "elastic_password" {
 }
 
 output "cluster_name" {
-  value = local.cluster_name
+  value = var.cluster_name
 }
 
 output "elasticsearch_url" {

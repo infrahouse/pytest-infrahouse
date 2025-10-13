@@ -1,5 +1,6 @@
 variable "region" {}
 variable "subnet_public_ids" {}
+variable "cluster_name" {}
 variable "bootstrap_mode" {
   type = bool
 }
