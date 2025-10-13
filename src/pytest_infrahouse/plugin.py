@@ -271,7 +271,7 @@ def jumphost(
     calling_test = osp.basename(request.node.path)
     subnet_public_ids = service_network["subnet_public_ids"]["value"]
     subnet_private_ids = service_network["subnet_private_ids"]["value"]
-    test_zone_id = subzone["zone_id"]["value"]
+    test_zone_id = subzone["subzone_id"]["value"]
 
     with as_file(files("pytest_infrahouse").joinpath("data/jumphost")) as module_dir:
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:

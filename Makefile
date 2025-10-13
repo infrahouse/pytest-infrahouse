@@ -55,7 +55,7 @@ test: ## Run tests
 
 .PHONY: test-verbose
 test-verbose: ## Run tests with verbose output
-	pytest -v $(TEST_DIR)
+	pytest -svvx $(TEST_DIR)
 
 .PHONY: test-coverage
 test-coverage: ## Run tests with coverage report
