@@ -3,8 +3,10 @@ variable "subnet_public_ids" {}
 variable "bootstrap_mode" {
   type = bool
 }
-variable "test_zone" {}
-variable "role_arn" {}
+variable "test_zone_id" {}
+variable "role_arn" {
+  default = null
+}
 variable "environment" {
   default = "development"
 }

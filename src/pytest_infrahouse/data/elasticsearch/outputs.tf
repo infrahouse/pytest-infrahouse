@@ -25,5 +25,5 @@ output "kibana_system_password" {
 }
 
 output "zone_id" {
-  value = data.aws_route53_zone.elastic.zone_id
+  value = var.test_zone_id
 }
