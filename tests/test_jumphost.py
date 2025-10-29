@@ -1,8 +1,4 @@
-import json
 import socket
-from os import path as osp
-
-from pytest_infrahouse import terraform_apply
 
 
 def test_jumphost(
