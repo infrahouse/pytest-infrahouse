@@ -18,7 +18,8 @@
       "WebFetch(domain:aws.amazon.com)",
       "WebFetch(domain:www.percona.com)",
       "WebFetch(domain:forums.percona.com)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:registry.infrahouse.com)"
     ],
     "deny": [],
     "ask": []

@@ -34,3 +34,43 @@ output "zone_id" {
   description = "Route53 hosted zone ID where Elasticsearch DNS records are created"
   value       = var.test_zone_id
 }
+
+output "subnet_ids" {
+  description = "List of subnet IDs where Elasticsearch nodes are deployed"
+  value       = var.subnet_public_ids
+}
+
+output "master_load_balancer_arn" {
+  description = "ARN of the load balancer for master nodes"
+  value       = module.elasticsearch.cluster_master_load_balancer_arn
+}
+
+output "master_target_group_arn" {
+  description = "ARN of the target group for master nodes"
+  value       = module.elasticsearch.cluster_master_target_group_arn
+}
+
+output "data_load_balancer_arn" {
+  description = "ARN of the load balancer for data nodes (null in bootstrap mode)"
+  value       = module.elasticsearch.cluster_data_load_balancer_arn
+}
+
+output "data_target_group_arn" {
+  description = "ARN of the target group for data nodes (null in bootstrap mode)"
+  value       = module.elasticsearch.cluster_data_target_group_arn
+}
+
+output "snapshots_bucket" {
+  description = "S3 bucket name used for Elasticsearch snapshots"
+  value       = module.elasticsearch.snapshots_bucket
+}
+
+output "master_instance_role_arn" {
+  description = "ARN of the IAM role attached to master node instances"
+  value       = module.elasticsearch.master_instance_role_arn
+}
+
+output "data_instance_role_arn" {
+  description = "ARN of the IAM role attached to data node instances"
+  value       = module.elasticsearch.data_instance_role_arn
+}

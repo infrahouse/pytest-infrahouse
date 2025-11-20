@@ -406,19 +406,22 @@ terraform {
 
 Some fixtures could export additional useful outputs:
 
-**elasticsearch:**
-- Missing: Security group IDs, subnet IDs, instance IDs
-- Current: Only passwords, cluster name, URL
+**elasticsearch:** ✅ **ADDRESSED**
+- ~~Missing: Security group IDs, subnet IDs, instance IDs~~
+- **Added:** subnet_ids, master_load_balancer_arn, master_target_group_arn, data_load_balancer_arn, data_target_group_arn, snapshots_bucket, master_instance_role_arn, data_instance_role_arn
+- **Note:** Security group IDs and instance IDs are not exposed by the underlying module (infrahouse/elasticsearch/aws v3.11.0). Added all available resource identifiers including load balancer ARNs, instance role ARNs, and subnet IDs for improved reusability and debugging.
 
-**jumphost:**
-- Missing: Instance ID, security group ID, EFS ID, NLB ARN
-- Current: Only role ARN/name and hostname
+**jumphost:** ✅ **PARTIALLY ADDRESSED**
+- ~~Missing: Instance ID, security group ID, EFS ID, NLB ARN~~
+- **Added:** jumphost_instance_profile_arn, jumphost_instance_profile_name, jumphost_asg_name
+- **Note:** Instance ID intentionally excluded (instances are non-static in ASG). Security group IDs, EFS ID, and NLB ARN are not exposed by the upstream module (infrahouse/jumphost/aws v4.3.0). Added all available outputs from the module for improved debugging and resource tracking.
 
-**service-network:**
-- Missing: NAT gateway IDs, route table IDs, VPC CIDR
-- Current: Only subnet IDs, IGW ID, VPC ID
+**service-network:** ✅ **ADDRESSED**
+- ~~Missing: NAT gateway IDs, route table IDs, VPC CIDR~~
+- **Added:** vpc_cidr_block, management_cidr_block, route_table_all_ids, subnet_all_ids, vpc_flow_bucket_name
+- **Note:** NAT gateway IDs are not exposed by the underlying module (infrahouse/service-network/aws v3.2.2). Added all available network resource identifiers including route tables, CIDR blocks, and VPC Flow logging bucket for improved debugging and resource tracking.
 
-**Recommendation:** Add outputs for resources that might be needed for testing or debugging.
+**Recommendation:** All fixtures now expose comprehensive outputs for debugging and testing purposes.
 
 ### 5. Hardcoded Elasticsearch Ubuntu Codename
 

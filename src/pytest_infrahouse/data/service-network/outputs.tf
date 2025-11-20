@@ -17,3 +17,28 @@ output "vpc_id" {
   description = "VPC ID of the created service network"
   value       = module.service-network.vpc_id
 }
+
+output "vpc_cidr_block" {
+  description = "CIDR block of the VPC"
+  value       = module.service-network.vpc_cidr_block
+}
+
+output "management_cidr_block" {
+  description = "CIDR block of the management VPC"
+  value       = module.service-network.management_cidr_block
+}
+
+output "route_table_all_ids" {
+  description = "List of IDs of all route tables in the service network"
+  value       = module.service-network.route_table_all_ids
+}
+
+output "subnet_all_ids" {
+  description = "List of IDs of all subnets (both public and private)"
+  value       = module.service-network.subnet_all_ids
+}
+
+output "vpc_flow_bucket_name" {
+  description = "S3 bucket name containing VPC Flow logs (if VPC Flow logging is enabled)"
+  value       = module.service-network.vpc_flow_bucket_name
+}
