@@ -8,9 +8,8 @@ provider "aws" {
   }
   default_tags {
     tags = {
-      created_by : var.calling_test
+      created_by_test : var.calling_test
       created_by_fixture : "infrahouse/pytest-infrahouse/jumphost"
     }
-
   }
 }
