@@ -5,9 +5,8 @@ data "aws_iam_policy_document" "permissions" {
     actions = [
       "sts:GetCallerIdentity"
     ]
-    resources = [
-      "*"
-    ]
+    # sts:GetCallerIdentity does not support resource-level permissions
+    resources = ["*"]
   }
 }
 
