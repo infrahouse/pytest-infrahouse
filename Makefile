@@ -37,6 +37,7 @@ clean: ## Clean build artifacts and cache files
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
+	find . -type d -name ".terraform" -exec rm -rf {} +
 
 .PHONY: format
 format: ## Format code with black and isort
