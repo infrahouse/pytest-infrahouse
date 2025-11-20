@@ -25,6 +25,11 @@ data "aws_iam_policy_document" "trust" {
   }
 }
 
+# Parse the caller's role name from assumed-role ARN
+# Example ARN: arn:aws:sts::123456789012:assumed-role/RoleName/SessionName
+# We extract "RoleName" from the ARN by:
+# 1. Splitting by ":" and taking element [5] -> "assumed-role/RoleName/SessionName"
+# 2. Splitting by "/" and taking element [1] -> "RoleName"
 data "aws_iam_role" "caller_role" {
   name = split("/", split(":", data.aws_caller_identity.current.arn)[5])[1]
 }

@@ -52,3 +52,13 @@ variable "calling_test" {
   description = "Name of the calling test file for resource tagging and tracking"
   type        = string
 }
+
+variable "ubuntu_codename" {
+  description = "Ubuntu LTS codename for Elasticsearch instances. Only current LTS versions are supported."
+  type        = string
+  default     = "noble"
+  validation {
+    condition     = contains(["noble"], var.ubuntu_codename)
+    error_message = "Only Ubuntu LTS 'noble' (24.04) is currently supported."
+  }
+}

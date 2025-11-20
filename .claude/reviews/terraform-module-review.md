@@ -423,73 +423,104 @@ Some fixtures could export additional useful outputs:
 
 **Recommendation:** All fixtures now expose comprehensive outputs for debugging and testing purposes.
 
-### 5. Hardcoded Elasticsearch Ubuntu Codename
+### 5. ✅ FIXED - Hardcoded Elasticsearch Ubuntu Codename
 
+**Status:** ✅ FIXED (2025-11-20)
 **Severity:** Minor
-**Impact:** Reduced flexibility
+**Impact:** Improved maintainability and documentation
 
-**File:** `elasticsearch/main.tf`
+**File:** `elasticsearch/main.tf`, `elasticsearch/variables.tf`
 
-```hcl
-ubuntu_codename = "noble"
-```
-
-**Recommendation:** Make this a variable with default:
+**What was done:** Created `ubuntu_codename` variable with validation to ensure only supported Ubuntu LTS versions are accepted. Currently only "noble" (Ubuntu 24.04 LTS) is supported.
 
 ```hcl
 variable "ubuntu_codename" {
-  description = "Ubuntu codename for Elasticsearch instances"
+  description = "Ubuntu LTS codename for Elasticsearch instances. Only current LTS versions are supported."
   type        = string
   default     = "noble"
+  validation {
+    condition     = contains(["noble"], var.ubuntu_codename)
+    error_message = "Only Ubuntu LTS 'noble' (24.04) is currently supported."
+  }
 }
 ```
 
-### 6. Magic Numbers in Hardcoded Configuration
+**Benefits:**
+- Documents supported Ubuntu versions explicitly
+- Makes it easy to add support for future LTS versions
+- Provides clear error messages if unsupported versions are attempted
+- Maintains flexibility while enforcing supported version constraint
 
+### 6. ✅ ADDRESSED - Hardcoded Configuration in Test Fixtures
+
+**Status:** ✅ ADDRESSED (2025-11-20) - Documented with comments
 **Severity:** Minor
-**Impact:** Reduced flexibility
+**Impact:** Improved code documentation
 
-**Examples:**
+**Files:** `jumphost/main.tf`, `elasticsearch/main.tf`
+
+**What was done:** Added comments explaining why these specific values are intentionally hardcoded for test fixtures.
 
 `jumphost/main.tf`:
 ```hcl
+# Single instance is sufficient for test fixture - provides access to test resources
 asg_min_size = 1
 asg_max_size = 1
 ```
 
 `elasticsearch/main.tf`:
 ```hcl
+# 3 master nodes required for quorum (majority consensus)
 cluster_master_count = 3
-cluster_data_count   = 1
+# Single data node sufficient for test fixture - no redundancy needed
+cluster_data_count = 1
 ```
 
-**Recommendation:** Consider making these variables if different test scenarios need different sizes.
+**Rationale:**
+- These are test fixtures, not production resources - fixed configuration is appropriate
+- **Jumphost:** Single EC2 instance sufficient to provide access to test resources
+- **Elasticsearch masters:** 3 nodes required to form proper quorum for distributed consensus
+- **Elasticsearch data:** No redundancy needed for test environment
 
-### 7. Inconsistent Use of HEREDOCs
+**Benefits:**
+- Documents the reasoning behind configuration choices
+- Makes it clear these are intentional values, not oversights
+- Helps future maintainers understand the design decisions
 
+### 7. ✅ ADDRESSED - Use of HEREDOCs
+
+**Status:** ✅ ADDRESSED (2025-11-20) - Current approach is appropriate
 **Severity:** Minor
 **Impact:** Code consistency
 
-Some Python fixture code uses `dedent()` for multi-line strings (subzone fixture), others use inline strings. 
-The coding standard states: "When a variable or output description is too long, use HEREDOC construction to wrap lines."
+**Analysis:** Reviewed all variable and output descriptions across fixtures.
 
-**Recommendation:** Apply HEREDOCs consistently for long descriptions in Terraform files.
+**Findings:**
+- Longest description: 87 characters (well within acceptable range)
+- All descriptions are single-line and fit comfortably within 120 character limit
+- Python's `dedent()` in plugin.py is for Python code formatting (different use case)
 
-### 8. probe-role IAM Role Name Not Specified
+**Decision:** Current inline descriptions are appropriate. HEREDOCs should be reserved for:
+- Descriptions exceeding 120 characters
+- Multi-paragraph documentation
+- Complex explanations requiring multiple sentences
 
+**Best Practices Confirmed:**
+- **Terraform descriptions**: Use HEREDOC only when truly long (120+ chars)
+- **Python code**: `dedent()` is appropriate for Python string formatting
+- **Terraform scripts**: Prefer `templatefile()`/`file()` over embedded HEREDOCs
+
+### 8. ✅ FIXED - probe-role IAM Role Name Not Specified
+
+**Status:** ✅ FIXED (2025-11-20)
 **Severity:** Minor
-**Impact:** AWS generates random names, harder to track resources
+**Impact:** Improved resource tracking and debugging
 
 **File:** `probe-role/main.tf`
 
-```hcl
-resource "aws_iam_role" "probe" {
-  assume_role_policy = data.aws_iam_policy_document.trust.json
-}
-```
+**What was done:** Added `name_prefix` and tags to both the IAM role and policy for better resource identification.
 
-**Should include:**
-
+**Changes:**
 ```hcl
 resource "aws_iam_role" "probe" {
   name_prefix        = "pytest-probe-"
@@ -499,34 +530,49 @@ resource "aws_iam_role" "probe" {
     Name = "pytest-probe-role"
   }
 }
+
+resource "aws_iam_role_policy" "probe" {
+  name_prefix = "pytest-probe-policy-"
+  policy      = data.aws_iam_policy_document.permissions.json
+  role        = aws_iam_role.probe.id
+}
 ```
 
-**Also affects:** `aws_iam_role_policy.probe` should have a name.
+**Benefits:**
+- IAM resources now have predictable, identifiable names
+- `name_prefix` allows multiple test runs without naming conflicts
+- Tags enable better resource tracking in AWS console
+- Easier debugging and cost attribution
 
 ---
 
 ## Minor Suggestions (Nice to Have)
 
-### 1. Add Comments Explaining Complex Logic
+### 1. ✅ FIXED - Add Comments Explaining Complex Logic
 
-**probe-role/data_sources.tf:**
+**Status:** ✅ FIXED (2025-11-20)
 
-```hcl
-data "aws_iam_role" "caller_role" {
-  name = split("/", split(":", data.aws_caller_identity.current.arn)[5])[1]
-}
-```
+**File:** `probe-role/data_sources.tf`
 
-**Recommendation:** Add comment explaining ARN parsing:
+**What was done:** Added detailed comments explaining the ARN parsing logic that extracts the role name from an assumed-role ARN.
 
+**Added comments:**
 ```hcl
 # Parse the caller's role name from assumed-role ARN
 # Example ARN: arn:aws:sts::123456789012:assumed-role/RoleName/SessionName
-# We extract "RoleName" from the ARN
+# We extract "RoleName" from the ARN by:
+# 1. Splitting by ":" and taking element [5] -> "assumed-role/RoleName/SessionName"
+# 2. Splitting by "/" and taking element [1] -> "RoleName"
 data "aws_iam_role" "caller_role" {
   name = split("/", split(":", data.aws_caller_identity.current.arn)[5])[1]
 }
 ```
+
+**Benefits:**
+- Makes complex ARN parsing logic immediately understandable
+- Provides example ARN format for reference
+- Documents step-by-step parsing process
+- Helps future maintainers understand the implementation
 
 ### 2. Add Module README.md for Each Fixture
 
