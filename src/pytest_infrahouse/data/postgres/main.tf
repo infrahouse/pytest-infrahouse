@@ -22,7 +22,7 @@ resource "aws_security_group" "postgres" {
   }
 
   tags = {
-    Name              = var.db_identifier
+    Name = var.db_identifier
   }
 }
 
@@ -43,7 +43,7 @@ resource "aws_db_subnet_group" "postgres" {
   subnet_ids  = var.subnet_private_ids
 
   tags = {
-    Name              = "${var.db_identifier}-subnet-group"
+    Name = "${var.db_identifier}-subnet-group"
   }
 }
 
@@ -62,7 +62,7 @@ resource "aws_secretsmanager_secret" "postgres_password" {
   recovery_window_in_days = 0 # Immediate deletion for test environments
 
   tags = {
-    Name              = "${var.db_identifier}-password"
+    Name = "${var.db_identifier}-password"
   }
 }
 
@@ -99,7 +99,7 @@ resource "aws_iam_role" "rds_enhanced_monitoring" {
   assume_role_policy = data.aws_iam_policy_document.rds_enhanced_monitoring_assume[0].json
 
   tags = {
-    Name              = "${var.db_identifier}-monitoring"
+    Name = "${var.db_identifier}-monitoring"
   }
 }
 
@@ -157,7 +157,7 @@ resource "aws_db_instance" "postgres" {
   monitoring_role_arn             = var.enable_enhanced_monitoring ? aws_iam_role.rds_enhanced_monitoring[0].arn : null
 
   tags = {
-    Name              = var.db_identifier
+    Name = var.db_identifier
   }
 
   depends_on = [

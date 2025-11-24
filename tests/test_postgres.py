@@ -1,8 +1,9 @@
-import pytest
 import boto3
+import pytest
 from botocore.exceptions import ClientError
 
-#pytest -xvvs --keep-after --test-role-arn=arn:aws:iam::303467602807:role/pmm-ecs-tester --aws-region=us-west-2 tests/test_postgres.py::test_postgres_fixture_structure
+
+# pytest -xvvs --keep-after --test-role-arn=arn:aws:iam::303467602807:role/pmm-ecs-tester --aws-region=us-west-2 tests/test_postgres.py::test_postgres_fixture_structure
 def test_postgres_fixture_structure(postgres):
     """
     Test that the postgres fixture returns expected terraform outputs.
@@ -82,7 +83,8 @@ def test_postgres_security_group(postgres, ec2_client):
 
         # Check for PostgreSQL ingress rule
         postgres_rules = [
-            rule for rule in sg["IpPermissions"]
+            rule
+            for rule in sg["IpPermissions"]
             if rule.get("FromPort") == 5432 and rule.get("ToPort") == 5432
         ]
         assert len(postgres_rules) > 0, "PostgreSQL ingress rule (port 5432) not found"

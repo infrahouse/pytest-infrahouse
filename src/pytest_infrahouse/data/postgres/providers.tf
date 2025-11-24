@@ -8,7 +8,7 @@ provider "aws" {
   }
   default_tags {
     tags = {
-      environment       : var.environment
+      environment : var.environment
       created_by_test : var.calling_test
       created_by_fixture : "infrahouse/pytest-infrahouse/postgres"
     }

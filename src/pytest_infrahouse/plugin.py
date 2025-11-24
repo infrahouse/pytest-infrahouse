@@ -353,9 +353,7 @@ def elasticsearch(
 
 
 @pytest.fixture(scope="session")
-def postgres(
-    request, service_network, keep_after, aws_region, test_role_arn
-):
+def postgres(request, service_network, keep_after, aws_region, test_role_arn):
     """
     Create a PostgreSQL RDS instance for testing database operations.
 
@@ -378,7 +376,9 @@ def postgres(
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
             fp.write(f'region = "{aws_region}"\n')
             fp.write(f'calling_test = "{calling_test}"\n')
-            fp.write(f'subnet_private_ids = {json.dumps(service_network["subnet_private_ids"]["value"])}\n')
+            fp.write(
+                f'subnet_private_ids = {json.dumps(service_network["subnet_private_ids"]["value"])}\n'
+            )
             fp.write(f'environment = "test"\n')
             if test_role_arn:
                 fp.write(f'role_arn = "{test_role_arn}"\n')
