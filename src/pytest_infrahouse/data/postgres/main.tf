@@ -58,7 +58,7 @@ resource "random_password" "postgres_password" {
 # Store password in Secrets Manager for secure access
 resource "aws_secretsmanager_secret" "postgres_password" {
   name_prefix             = "${var.db_identifier}-password-"
-  description             = "PostgreSQL master password for ${var.db_identifier}"
+  description             = "PostgreSQL master password for ${aws_db_instance.postgres.identifier}"
   recovery_window_in_days = 0 # Immediate deletion for test environments
 
   tags = {
@@ -110,9 +110,14 @@ resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
 
+# Generate unique suffix for RDS instance identifier
+resource "random_id" "postgres_suffix" {
+  byte_length = 4
+}
+
 # PostgreSQL RDS instance
 resource "aws_db_instance" "postgres" {
-  identifier = var.db_identifier
+  identifier = "${var.db_identifier}-${random_id.postgres_suffix.hex}"
 
   # Engine configuration
   engine         = "postgres"
