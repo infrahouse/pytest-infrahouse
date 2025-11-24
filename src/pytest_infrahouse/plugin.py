@@ -353,6 +353,45 @@ def elasticsearch(
 
 
 @pytest.fixture(scope="session")
+def postgres(request, service_network, keep_after, aws_region, test_role_arn):
+    """
+    Create a PostgreSQL RDS instance for testing database operations.
+
+    This fixture provides a fully configured PostgreSQL RDS instance running
+    in private subnets with proper security group configuration.
+
+    Returns:
+        dict: Terraform outputs including:
+            - endpoint: Full connection endpoint (host:port)
+            - address: Database hostname
+            - port: Database port
+            - database_name: Default database name
+            - master_username: Master username
+            - master_password: Master password (sensitive)
+            - secret_arn: ARN of Secrets Manager secret with credentials
+            - connection_string: PostgreSQL connection URI (sensitive)
+    """
+    calling_test = osp.basename(request.node.path)
+    with as_file(files("pytest_infrahouse").joinpath("data/postgres")) as module_dir:
+        with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
+            fp.write(f'region = "{aws_region}"\n')
+            fp.write(f'calling_test = "{calling_test}"\n')
+            fp.write(
+                f'subnet_private_ids = {json.dumps(service_network["subnet_private_ids"]["value"])}\n'
+            )
+            fp.write(f'environment = "test"\n')
+            if test_role_arn:
+                fp.write(f'role_arn = "{test_role_arn}"\n')
+
+        with terraform_apply(
+            module_dir,
+            destroy_after=not keep_after,
+            json_output=True,
+        ) as tf_output:
+            yield tf_output
+
+
+@pytest.fixture(scope="session")
 def ses(request, aws_region, test_zone_name, test_role_arn, keep_after):
     calling_test = osp.basename(request.node.path)
     with as_file(files("pytest_infrahouse").joinpath("data/ses")) as module_dir:
