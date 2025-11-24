@@ -55,6 +55,7 @@ Table of Contents
   * `service_network`_
   * `jumphost`_
   * `elasticsearch`_
+  * `postgres`_
   * `instance_profile`_
   * `probe_role`_
   * `ses`_
@@ -106,9 +107,10 @@ Features
 * **Infrastructure Fixtures**: Ready-to-use fixtures for common AWS resources:
 
   * ``service_network`` - VPC with public/private subnets
-  * ``instance_profile`` - IAM instance profile for EC2 instances  
+  * ``instance_profile`` - IAM instance profile for EC2 instances
   * ``jumphost`` - EC2 jumphost with proper networking
   * ``elasticsearch`` - Elasticsearch cluster setup
+  * ``postgres`` - PostgreSQL RDS instance for database testing
   * ``ses`` - Simple Email Service configuration
   * ``probe_role`` - IAM role with limited permissions
   * ``subzone`` - Route53 DNS subzone for testing
@@ -360,6 +362,7 @@ Available Fixtures
 * ``instance_profile`` - IAM instance profile for EC2
 * ``jumphost`` - EC2 jumphost in the service network
 * ``elasticsearch`` - Elasticsearch cluster
+* ``postgres`` - PostgreSQL RDS instance
 * ``ses`` - Simple Email Service setup
 * ``probe_role`` - IAM role with limited permissions
 * ``subzone`` - Route53 DNS subzone for testing
@@ -761,6 +764,81 @@ elasticsearch
         assert cluster_url.startswith("https://")
         assert password  # Password should be generated
 
+postgres
+~~~~~~~~
+
+**Purpose:** Creates a PostgreSQL RDS instance for testing database operations and integrations.
+
+**Resources Created:**
+
+* PostgreSQL RDS instance (configurable version and instance class)
+* DB subnet group for multi-AZ deployment
+* Security group with PostgreSQL access rules
+* Secrets Manager secret for credentials storage
+* IAM role for Enhanced Monitoring (optional)
+* Random password generation with secure storage
+* Time delay to ensure database is ready
+
+**Outputs:**
+
+* ``endpoint`` - Full connection endpoint (host:port)
+* ``address`` - Database hostname
+* ``port`` - Database port (5432)
+* ``database_name`` - Default database name
+* ``master_username`` - Master username
+* ``master_password`` - Master password (sensitive)
+* ``secret_arn`` - ARN of Secrets Manager secret with credentials
+* ``secret_name`` - Name of Secrets Manager secret
+* ``instance_id`` - RDS resource ID (internal AWS identifier like db-XXX)
+* ``instance_identifier`` - RDS instance identifier (user-defined name)
+* ``instance_arn`` - RDS instance ARN
+* ``instance_class`` - Instance type (default: db.t3.micro)
+* ``engine_version`` - PostgreSQL version
+* ``security_group_id`` - Security group ID
+* ``db_subnet_group_name`` - DB subnet group name
+* ``availability_zone`` - Deployment AZ
+* ``connection_string`` - PostgreSQL connection URI (sensitive)
+* ``jdbc_connection_string`` - JDBC connection string
+
+**Dependencies:**
+
+* ``service_network`` (requires VPC and private subnets for RDS subnet group)
+
+**Estimated Cost:** ~$15-25/month (db.t3.micro ~$13 + storage ~$2-5 + optional backups)
+
+**Configuration Options:**
+
+* PostgreSQL version (default: 16.6)
+* Instance class (default: db.t3.micro)
+* Storage size (default: 20GB, autoscaling to 100GB)
+* Performance Insights (enabled by default for PMM integration)
+* Enhanced Monitoring (enabled by default for comprehensive metrics)
+* CloudWatch logs export (enabled by default: postgresql, upgrade logs)
+
+**Example:**
+
+.. code-block:: python
+
+    def test_postgres_database(postgres, secretsmanager_client):
+        """Test PostgreSQL RDS instance is functional."""
+        # Connection details
+        endpoint = postgres["endpoint"]["value"]
+        database = postgres["database_name"]["value"]
+        username = postgres["master_username"]["value"]
+
+        # Verify database is accessible
+        assert endpoint  # host:port format
+        assert database == "testdb"
+        assert username == "pytest_admin"
+
+        # Get password from Secrets Manager
+        secret_arn = postgres["secret_arn"]["value"]
+        secret = secretsmanager_client.get_secret_value(SecretId=secret_arn)
+
+        # Use psycopg2 or SQLAlchemy to connect
+        connection_string = postgres["connection_string"]["value"]
+        assert connection_string.startswith("postgresql://")
+
 instance_profile
 ~~~~~~~~~~~~~~~~
 
@@ -910,12 +988,13 @@ Cost Summary
 * service_network: ~$100-150
 * jumphost: ~$50-80
 * elasticsearch: ~$200-300
+* postgres: ~$15-25
 * instance_profile: $0
 * probe_role: $0
 * ses: ~$0-1
 * subzone: ~$0.50
 
-**Total: ~$350-530/month**
+**Total: ~$365-555/month**
 
 **Important Notes:**
 
