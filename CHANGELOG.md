@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.0] - 2025-12-05
+
+### Miscellaneous Tasks
+
+- Update terraform registry.infrahouse.com/infrahouse/elasticsearch/aws to v3.12.0
+- Update terraform time to ~> 0.13
+- Update actions/checkout action to v6
+- Update pypa/gh-action-pypi-publish digest to 3317ede
+- Update dependency pytest to v9
+
 ## [0.22.0] - 2025-12-05
 
 ### Features
