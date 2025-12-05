@@ -121,8 +121,7 @@ def wait_for_instance_refresh(
     in_progress = [
         ir
         for ir in instance_refreshes
-        if ir["Status"]
-        in ["Pending", "InProgress", "Cancelling", "RollbackInProgress"]
+        if ir["Status"] in ["Pending", "InProgress", "Cancelling", "RollbackInProgress"]
     ]
     pending_details = [
         f"{ir['InstanceRefreshId']}: {ir['Status']} ({ir.get('PercentageComplete', 0)}% complete)"
