@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.0] - 2025-12-05
+
+### Features
+
+- Add ASG instance refresh monitoring utility with improved error handling ([#62](https://github.com/infrahouse/pytest-infrahouse/issues/62))
+
 ## [0.21.0] - 2025-11-24
 
 ### Features
