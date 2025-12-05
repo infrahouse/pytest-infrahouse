@@ -5,10 +5,10 @@ import time
 from contextlib import contextmanager
 from subprocess import PIPE, CalledProcessError, Popen, check_call
 
+from . import DEFAULT_PROGRESS_INTERVAL, LOG
+
 DEFAULT_OPEN_ENCODING = "utf8"
 DEFAULT_ENCODING = DEFAULT_OPEN_ENCODING
-DEFAULT_PROGRESS_INTERVAL = 10
-LOG = logging.getLogger()
 
 MAX_RETRIES = 5
 BACKOFF_SECONDS = 10
