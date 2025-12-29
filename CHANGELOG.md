@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.1] - 2025-12-29
+
+### Bug Fixes
+
+- Treat cancelled ASG instance refreshes as completed state
+
 ## [0.23.0] - 2025-12-05
 
 ### Miscellaneous Tasks
