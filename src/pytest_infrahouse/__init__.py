@@ -1,6 +1,6 @@
 import logging
 
-__version__ = "0.23.0"
+__version__ = "0.23.1"
 
 # Shared constants
 LOG = logging.getLogger(__name__)
