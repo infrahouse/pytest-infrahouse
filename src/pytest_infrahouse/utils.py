@@ -19,7 +19,10 @@ def wait_for_instance_refresh(
     poll_interval: int = DEFAULT_PROGRESS_INTERVAL,
 ) -> None:
     """
-     Wait for any in-progress ASG instance refreshes to complete.
+    Wait for any in-progress ASG instance refreshes to complete.
+
+    FIX: Treats "Cancelled" as a completed state (not a failure).
+    If user manually cancels a refresh, we just continue - there's nothing to wait for.
 
     Example:
         >>> from pytest_infrahouse.utils import wait_for_instance_refresh
@@ -30,13 +33,13 @@ def wait_for_instance_refresh(
         ...     poll_interval=5
         ... )
 
-     :param asg_name: Name of the Auto Scaling Group
-     :param autoscaling_client: boto3 autoscaling client
-     :param timeout: Maximum time to wait in seconds (default 3600 = 1 hour)
-     :param poll_interval: How often to poll in seconds (default 10)
-     :raises TimeoutError: If timeout is reached with pending refreshes
-     :raises RuntimeError: If any refresh fails or ASG is not found
-     :raises Exception: On unexpected errors
+    :param asg_name: Name of the Auto Scaling Group
+    :param autoscaling_client: boto3 autoscaling client
+    :param timeout: Maximum time to wait in seconds (default 3600 = 1 hour)
+    :param poll_interval: How often to poll in seconds (default 10)
+    :raises TimeoutError: If timeout is reached with pending refreshes
+    :raises RuntimeError: If any refresh fails or ASG is not found
+    :raises Exception: On unexpected errors
     """
     LOG.info("=" * 80)
     LOG.info("Checking for in-progress ASG instance refreshes for %s", asg_name)
@@ -53,8 +56,9 @@ def wait_for_instance_refresh(
 
             instance_refreshes = response.get("InstanceRefreshes", [])
 
-            # Check for failed refreshes
-            failed_states = ["Failed", "Cancelled", "RollbackSuccessful"]
+            # Check for ACTUAL failures (not cancelled)
+            # Cancelled means user manually cancelled - not a failure, just done
+            failed_states = ["Failed", "RollbackSuccessful"]
             failed = [ir for ir in instance_refreshes if ir["Status"] in failed_states]
             if failed:
                 failed_details = [
@@ -69,6 +73,17 @@ def wait_for_instance_refresh(
                 LOG.info("=" * 80)
                 raise RuntimeError(error_msg)
 
+            # Log cancelled refreshes as informational (not errors)
+            cancelled = [ir for ir in instance_refreshes if ir["Status"] == "Cancelled"]
+            for ir in cancelled:
+                refresh_id = ir["InstanceRefreshId"]
+                if refresh_id not in seen_statuses:
+                    LOG.info(
+                        "Instance refresh %s was cancelled by user - continuing",
+                        refresh_id
+                    )
+                    seen_statuses[refresh_id] = "Cancelled"
+
             in_progress = [
                 ir
                 for ir in instance_refreshes
@@ -78,7 +93,7 @@ def wait_for_instance_refresh(
 
             if not in_progress:
                 if seen_statuses:
-                    LOG.info("All instance refreshes completed successfully")
+                    LOG.info("All instance refreshes completed")
                 else:
                     LOG.info("No in-progress instance refreshes found")
                 LOG.info("=" * 80)
