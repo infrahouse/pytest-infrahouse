@@ -5,7 +5,7 @@ resource "random_string" "suffix" {
 
 module "jumphost" {
   source             = "registry.infrahouse.com/infrahouse/jumphost/aws"
-  version            = "4.3.0"
+  version            = "4.5.0"
   environment        = var.environment
   keypair_name       = aws_key_pair.jumphost.key_name
   efs_creation_token = "jumphost-home-${random_string.suffix.result}"
