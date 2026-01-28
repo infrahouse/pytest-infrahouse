@@ -80,7 +80,7 @@ def wait_for_instance_refresh(
                 if refresh_id not in seen_statuses:
                     LOG.info(
                         "Instance refresh %s was cancelled by user - continuing",
-                        refresh_id
+                        refresh_id,
                     )
                     seen_statuses[refresh_id] = "Cancelled"
 
