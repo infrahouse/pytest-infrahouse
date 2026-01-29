@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.0] - 2026-01-29
+
+### Miscellaneous Tasks
+
+- Remove test artifact
+
 ## [0.23.1] - 2025-12-29
 
 ### Bug Fixes
