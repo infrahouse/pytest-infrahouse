@@ -1,6 +1,6 @@
 module "elasticsearch" {
   source  = "registry.infrahouse.com/infrahouse/elasticsearch/aws"
-  version = "3.12.0"
+  version = "4.0.1"
   providers = {
     aws     = aws
     aws.dns = aws
