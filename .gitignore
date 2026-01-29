@@ -23,6 +23,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.build
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -59,7 +60,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
-
+.build
 # MkDocs documentation
 /site/
 

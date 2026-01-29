@@ -1,6 +1,6 @@
 module "elasticsearch" {
   source  = "registry.infrahouse.com/infrahouse/elasticsearch/aws"
-  version = "3.12.0"
+  version = "4.0.1"
   providers = {
     aws     = aws
     aws.dns = aws
@@ -14,8 +14,10 @@ module "elasticsearch" {
   subnet_ids             = var.subnet_public_ids
   zone_id                = var.test_zone_id
   bootstrap_mode         = var.bootstrap_mode
-  internet_gateway_id    = var.internet_gateway_id
   key_pair_name          = aws_key_pair.elastic.key_name
   ubuntu_codename        = var.ubuntu_codename
   secret_elastic_readers = []
+  alarm_emails = [
+    "test@example.com"
+  ]
 }
