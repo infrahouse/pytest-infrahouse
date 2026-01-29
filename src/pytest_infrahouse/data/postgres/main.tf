@@ -115,6 +115,30 @@ resource "random_id" "postgres_suffix" {
   byte_length = 4
 }
 
+# CloudWatch Log Groups for RDS logs
+# Pre-creating these ensures Terraform manages them and they get cleaned up on destroy
+resource "aws_cloudwatch_log_group" "postgresql" {
+  count = contains(var.enabled_cloudwatch_logs_exports, "postgresql") ? 1 : 0
+
+  name              = "/aws/rds/instance/${var.db_identifier}-${random_id.postgres_suffix.hex}/postgresql"
+  retention_in_days = 7
+
+  tags = {
+    Name = "${var.db_identifier}-postgresql-logs"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "upgrade" {
+  count = contains(var.enabled_cloudwatch_logs_exports, "upgrade") ? 1 : 0
+
+  name              = "/aws/rds/instance/${var.db_identifier}-${random_id.postgres_suffix.hex}/upgrade"
+  retention_in_days = 7
+
+  tags = {
+    Name = "${var.db_identifier}-upgrade-logs"
+  }
+}
+
 # PostgreSQL RDS instance
 resource "aws_db_instance" "postgres" {
   identifier = "${var.db_identifier}-${random_id.postgres_suffix.hex}"
@@ -166,7 +190,9 @@ resource "aws_db_instance" "postgres" {
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.rds_enhanced_monitoring
+    aws_iam_role_policy_attachment.rds_enhanced_monitoring,
+    aws_cloudwatch_log_group.postgresql,
+    aws_cloudwatch_log_group.upgrade
   ]
 }
 
