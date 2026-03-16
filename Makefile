@@ -41,13 +41,13 @@ clean: ## Clean build artifacts and cache files
 
 .PHONY: format
 format: ## Format code with black and isort
-	black $(SRC_DIR) $(TEST_DIR)
+	black --target-version py310 $(SRC_DIR) $(TEST_DIR)
 	isort $(SRC_DIR) $(TEST_DIR)
 	terraform fmt -recursive
 
 .PHONY: lint
 lint: ## Run linting checks
-	black --check $(SRC_DIR) $(TEST_DIR)
+	black --check --target-version py310 $(SRC_DIR) $(TEST_DIR)
 	isort --check-only $(SRC_DIR) $(TEST_DIR)
 
 .PHONY: test

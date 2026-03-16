@@ -439,23 +439,15 @@ def subzone(
     zone_id = None
     with as_file(files("pytest_infrahouse").joinpath("data/subzone")) as module_dir:
         with open(osp.join(module_dir, "terraform.tfvars"), "w") as fp:
-            fp.write(
-                dedent(
-                    f"""
+            fp.write(dedent(f"""
                     parent_zone_name = "{test_zone_name}"
                     region           = "{aws_region}"
                     calling_test     = "{calling_test}"
-                    """
-                )
-            )
+                    """))
             if test_role_arn:
-                fp.write(
-                    dedent(
-                        f"""
+                fp.write(dedent(f"""
                         role_arn = "{test_role_arn}"
-                        """
-                    )
-                )
+                        """))
     try:
         with terraform_apply(
             module_dir,

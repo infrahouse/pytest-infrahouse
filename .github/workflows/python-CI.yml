@@ -53,7 +53,7 @@ jobs:
 
             - name: Lint with black and isort
               run: |
-                  black --check src tests
+                  black --check --target-version py310 src tests
                   isort --check-only src tests
 
             - name: Run tests
