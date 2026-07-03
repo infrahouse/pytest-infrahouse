@@ -60,13 +60,16 @@ variable "db_identifier" {
 variable "postgres_version" {
   description = <<-EOT
     PostgreSQL engine version. Check AWS RDS documentation for available versions.
-    Default is latest stable LTS version.
+    Accepts a major version (e.g. "16"), in which case AWS selects the default supported
+    minor version, or an exact major.minor version (e.g. "16.9"). Pinning the major only
+    avoids apply failures when AWS retires a specific minor version. The resolved version
+    is available in the engine_version_actual output.
   EOT
   type        = string
-  default     = "16.6"
+  default     = "16"
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+$", var.postgres_version))
-    error_message = "PostgreSQL version must be in format X.Y (e.g., 16.6)."
+    condition     = can(regex("^[0-9]+(\\.[0-9]+)?$", var.postgres_version))
+    error_message = "PostgreSQL version must be a major version (e.g., 16) or a major.minor version (e.g., 16.9)."
   }
 }
 
