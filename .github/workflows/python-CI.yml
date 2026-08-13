@@ -26,10 +26,10 @@ jobs:
             fail-fast: false
 
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
 
             - name: Configure AWS Credentials
-              uses: aws-actions/configure-aws-credentials@v5
+              uses: aws-actions/configure-aws-credentials@v6
               with:
                   role-to-assume: ${{ env.ROLE_ARN }}
                   role-session-name: "terraform-ci"
@@ -37,12 +37,12 @@ jobs:
                   role-duration-seconds: 43200
 
             - name: Setup Terraform
-              uses: hashicorp/setup-terraform@v3
+              uses: hashicorp/setup-terraform@v4
               with:
                   terraform_wrapper: false
 
             - name: Set up Python ${{ matrix.python-version }}
-              uses: actions/setup-python@v6
+              uses: actions/setup-python@v7
               with:
                   python-version: ${{ matrix.python-version }}
 
