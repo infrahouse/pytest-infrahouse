@@ -63,10 +63,10 @@ variable "postgres_version" {
     Default is latest stable LTS version.
   EOT
   type        = string
-  default     = "16.6"
+  default     = "18.4"
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+$", var.postgres_version))
-    error_message = "PostgreSQL version must be in format X.Y (e.g., 16.6)."
+    error_message = "PostgreSQL version must be in format X.Y (e.g., 18.4)."
   }
 }
 
