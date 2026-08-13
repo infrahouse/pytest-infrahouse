@@ -21,3 +21,9 @@ variable "calling_test" {
   description = "Name of the calling test file for resource tagging and tracking"
   type        = string
 }
+
+variable "environment" {
+  description = "Environment name for resource naming and tagging"
+  type        = string
+  default     = "test"
+}
