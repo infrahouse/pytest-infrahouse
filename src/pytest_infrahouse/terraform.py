@@ -1,9 +1,9 @@
 import json
-import logging
 import os
 import time
 from contextlib import contextmanager
-from subprocess import PIPE, CalledProcessError, Popen, check_call
+from subprocess import PIPE, CalledProcessError, Popen
+from typing import IO, Dict, List, Optional, Tuple, Union
 
 from . import DEFAULT_PROGRESS_INTERVAL, LOG
 
@@ -15,30 +15,45 @@ BACKOFF_SECONDS = 10
 
 
 def run_with_retries(
-    cmd,
-    cwd=None,
-    env=None,
-    stdout=None,
-    stderr=None,
-    max_retries=MAX_RETRIES,
-    backoff_seconds=BACKOFF_SECONDS,
-):
+    cmd: List[str],
+    cwd: Optional[str] = None,
+    env: Optional[Dict[str, str]] = None,
+    stdout: Union[int, IO, None] = None,
+    stderr: Union[int, IO, None] = None,
+    max_retries: int = MAX_RETRIES,
+    backoff_seconds: int = BACKOFF_SECONDS,
+) -> None:
+    """
+    Run a command, retrying on failure with a linear backoff.
+
+    :param cmd: Command to run.
+    :param cwd: Working directory.
+    :param env: Dictionary with environment for the process.
+    :param stdout: Where to send stdout. Default None (inherit).
+    :param stderr: Where to send stderr. Default None (inherit).
+    :param max_retries: Maximum number of attempts before giving up.
+    :param backoff_seconds: Base number of seconds to wait between attempts
+        (multiplied by the attempt number).
+    :raise CalledProcessError: if the command still fails after ``max_retries`` attempts.
+    """
     attempt = 1
     while True:
-        try:
-            check_call(cmd, cwd=cwd, env=env, stdout=stdout, stderr=stderr)
+        ret, cout, cerr = execute(cmd, stdout=stdout, stderr=stderr, cwd=cwd, env=env)
+        if ret == 0:
             LOG.info("Command succeeded on attempt %d", attempt)
             return
-        except CalledProcessError as e:
-            if attempt >= max_retries:
-                LOG.error("Command failed after %d attempts", attempt)
-                raise
-            sleep_time = backoff_seconds * attempt
-            LOG.warning(
-                f"Attempt %d failed with %s. Retrying in %ds...", attempt, e, sleep_time
-            )
-            time.sleep(sleep_time)
-            attempt += 1
+        error = CalledProcessError(
+            returncode=ret, cmd=" ".join(cmd), output=cout, stderr=cerr
+        )
+        if attempt >= max_retries:
+            LOG.error("Command failed after %d attempts", attempt)
+            raise error
+        sleep_time = backoff_seconds * attempt
+        LOG.warning(
+            "Attempt %d failed with %s. Retrying in %ds...", attempt, error, sleep_time
+        )
+        time.sleep(sleep_time)
+        attempt += 1
 
 
 @contextmanager
@@ -74,8 +89,8 @@ def terraform_apply(
     :type backoff_seconds: int
     :return: If json_output is true then yield the result from terraform_output otherwise nothing.
         Use it in the ``with`` block.
-    :raise CalledProcessError: if either of terraform commands (except ``terraform destroy``)
-        exits with non-zero.
+    :raise CalledProcessError: if either of terraform commands still exits with non-zero
+        after ``max_retries`` attempts.
     """
     cmds = [
         ["terraform", "init", "-no-color"],
@@ -86,6 +101,7 @@ def terraform_apply(
             f"-var-file={var_file}",
             "-input=false",
             "-auto-approve",
+            "-no-color",
         ],
     ]
     env = dict(os.environ)
@@ -98,13 +114,15 @@ def terraform_apply(
                 if enable_trace
                 else None
             )
-            ret, cout, cerr = execute(
-                cmd, stdout=None, stderr=stderr, cwd=path, env=env
+            run_with_retries(
+                cmd,
+                stdout=None,
+                stderr=stderr,
+                cwd=path,
+                env=env,
+                max_retries=max_retries,
+                backoff_seconds=backoff_seconds,
             )
-            if ret:
-                raise CalledProcessError(
-                    returncode=ret, cmd=" ".join(cmd), output=cout, stderr=cerr
-                )
         if json_output:
             yield terraform_output(path)
         else:
@@ -124,6 +142,7 @@ def terraform_apply(
                     f"-var-file={var_file}",
                     "-input=false",
                     "-auto-approve",
+                    "-no-color",
                 ],
                 stdout=None,
                 stderr=stderr,
@@ -134,46 +153,39 @@ def terraform_apply(
             )
 
 
-def terraform_output(path):
+def terraform_output(path: str) -> dict:
     """
     Run terraform output and return the json results as a dict.
 
     :param path: Path to directory with terraform module.
-    :type path: str
     :return: dict from terraform output
-    :rtype: dict
     """
-    cmd = ["terraform", "output", "-json"]
+    cmd = ["terraform", "output", "-json", "-no-color"]
     ret, cout, cerr = execute(cmd, stdout=PIPE, stderr=None, cwd=path)
     if ret:
         raise CalledProcessError(
             returncode=ret, cmd=" ".join(cmd), output=cout, stderr=cerr
         )
+    assert cout is not None  # stdout=PIPE guarantees captured output
     return json.loads(cout)
 
 
 def execute(
-    cmd,
-    stdout=PIPE,
-    stderr=PIPE,
-    cwd=None,
-    env=None,
-):
+    cmd: List[str],
+    stdout: Union[int, IO, None] = PIPE,
+    stderr: Union[int, IO, None] = PIPE,
+    cwd: Optional[str] = None,
+    env: Optional[Dict[str, str]] = None,
+) -> Tuple[int, Optional[bytes], Optional[bytes]]:
     """
     Execute a command and return a tuple with return code, STDOUT and STDERR.
 
     :param cmd: Command.
-    :type cmd: list
     :param stdout: Where to send stdout. Default PIPE.
-    :type stdout: int, None
-    :param stderr: Where to send stdout. Default PIPE.
-    :type stderr: int, None
+    :param stderr: Where to send stderr. Default PIPE.
     :param cwd: Working directory.
-    :type cwd: str
     :param env: Dictionary with environment for the process.
-    :type env: dict
     :return: Tuple (return code, STDOUT, STDERR)
-    :rtype: tuple
     """
     LOG.info("Executing: %s", " ".join(cmd))
     with Popen(cmd, stdout=stdout, stderr=stderr, cwd=cwd, env=env) as proc:
