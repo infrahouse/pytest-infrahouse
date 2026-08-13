@@ -23,6 +23,20 @@ help: ## Show this help message
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
+.PHONY: bootstrap
+bootstrap: install-hooks ## Install all project dependencies (assumes a virtualenv)
+	$(PIP) install --upgrade pip setuptools
+	$(PIP) install -e .
+
+.PHONY: install-hooks
+install-hooks: ## Install pre-commit hooks and commit-msg hook
+	@if [ -f .pre-commit-config.yaml ]; then \
+		pre-commit install; \
+		pre-commit install --hook-type commit-msg; \
+	else \
+		echo "No .pre-commit-config.yaml found, skipping hook installation"; \
+	fi
+
 .PHONY: install
 install: ## Install package in development mode
 	$(PIP) install -e .
