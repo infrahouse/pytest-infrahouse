@@ -10,6 +10,7 @@ from textwrap import dedent
 
 import boto3
 import pytest
+from botocore.client import BaseClient
 from botocore.credentials import RefreshableCredentials
 from botocore.exceptions import ClientError
 from botocore.session import Session as BotocoreSession
@@ -19,6 +20,10 @@ from .terraform import terraform_apply
 AWS_DEFAULT_REGION = "us-east-1"
 TEST_ZONE = "ci-cd.infrahouse.com"
 LOG = logging.getLogger()
+
+# GuardDuty endpoint ENIs can take several minutes to detach after the endpoint is deleted.
+INJECTED_CLEANUP_TIMEOUT = 900
+INJECTED_CLEANUP_POLL_INTERVAL = 10
 
 
 def pytest_addoption(parser):
@@ -218,7 +223,7 @@ def terraform_data():
 
 
 @pytest.fixture(scope="session")
-def service_network(request, keep_after, test_role_arn, aws_region):
+def service_network(request, keep_after, test_role_arn, aws_region, ec2_client):
     calling_test = osp.basename(request.node.path)
     with as_file(
         files("pytest_infrahouse").joinpath("data/service-network")
@@ -235,7 +240,13 @@ def service_network(request, keep_after, test_role_arn, aws_region):
             json_output=True,
             enable_trace=False,
         ) as tf_output:
-            yield tf_output
+            try:
+                yield tf_output
+            finally:
+                if not keep_after:
+                    _cleanup_injected_vpc_resources(
+                        ec2_client, tf_output["vpc_id"]["value"]
+                    )
 
 
 @pytest.fixture(scope="session")
@@ -463,6 +474,99 @@ def subzone(
         if not keep_after and zone_id:
             _cleanup_dns_zone(zone_id, boto3_session.client("route53"))
             _delete_dns_zone(zone_id, boto3_session.client("route53"))
+
+
+def _is_aws_injected(resource: dict) -> bool:
+    """
+    Check whether an EC2 resource was created by AWS rather than by a fixture.
+
+    Every resource a fixture creates is stamped with the ``created_by_fixture``
+    tag via provider default_tags, so a resource without the tag was injected
+    by AWS (e.g. GuardDuty runtime monitoring).
+
+    :param resource: Resource description as returned by EC2 describe calls.
+    :return: True if the resource lacks the ``created_by_fixture`` tag.
+    """
+    return all(tag["Key"] != "created_by_fixture" for tag in resource.get("Tags", []))
+
+
+def _cleanup_injected_vpc_resources(ec2_client: BaseClient, vpc_id: str) -> None:
+    """
+    Delete AWS-injected resources from a test VPC before ``terraform destroy``.
+
+    Services like GuardDuty runtime monitoring instrument the VPC with an
+    interface VPC endpoint and a managed security group. Terraform doesn't
+    manage them, so they block subnet/VPC deletion with DependencyViolation
+    and leave an orphaned VPC behind. Endpoints are deleted first because
+    their ENIs reference the security group.
+
+    :param ec2_client: boto3 EC2 client.
+    :param vpc_id: ID of the VPC to clean up.
+    :raise TimeoutError: if the injected resources are still present after
+        ``INJECTED_CLEANUP_TIMEOUT`` seconds.
+    """
+    vpc_filter = [{"Name": "vpc-id", "Values": [vpc_id]}]
+
+    endpoint_ids = [
+        endpoint["VpcEndpointId"]
+        for endpoint in ec2_client.describe_vpc_endpoints(Filters=vpc_filter)[
+            "VpcEndpoints"
+        ]
+        if _is_aws_injected(endpoint)
+    ]
+    if endpoint_ids:
+        LOG.info("Deleting AWS-injected VPC endpoints %s in %s", endpoint_ids, vpc_id)
+        ec2_client.delete_vpc_endpoints(VpcEndpointIds=endpoint_ids)
+        deadline = time.time() + INJECTED_CLEANUP_TIMEOUT
+        while True:
+            remaining = [
+                endpoint["VpcEndpointId"]
+                for endpoint in ec2_client.describe_vpc_endpoints(
+                    Filters=[{"Name": "vpc-endpoint-id", "Values": endpoint_ids}]
+                )["VpcEndpoints"]
+                if endpoint["State"].lower()
+                not in ("deleted", "failed", "rejected", "expired")
+            ]
+            if not remaining:
+                break
+            if time.time() > deadline:
+                raise TimeoutError(
+                    f"VPC endpoints {remaining} are still present "
+                    f"after {INJECTED_CLEANUP_TIMEOUT} seconds"
+                )
+            LOG.info("Waiting for VPC endpoints %s to be deleted", remaining)
+            time.sleep(INJECTED_CLEANUP_POLL_INTERVAL)
+
+    group_ids = [
+        group["GroupId"]
+        for group in ec2_client.describe_security_groups(Filters=vpc_filter)[
+            "SecurityGroups"
+        ]
+        if group["GroupName"] != "default" and _is_aws_injected(group)
+    ]
+    for group_id in group_ids:
+        LOG.info("Deleting AWS-injected security group %s in %s", group_id, vpc_id)
+        deadline = time.time() + INJECTED_CLEANUP_TIMEOUT
+        while True:
+            try:
+                ec2_client.delete_security_group(GroupId=group_id)
+                break
+            except ClientError as e:
+                if e.response["Error"]["Code"] == "InvalidGroup.NotFound":
+                    break
+                if (
+                    e.response["Error"]["Code"] == "DependencyViolation"
+                    and time.time() < deadline
+                ):
+                    # The endpoint ENIs referencing the group may still be detaching.
+                    LOG.info(
+                        "Security group %s is still in use. Retrying in %ds.",
+                        group_id,
+                        INJECTED_CLEANUP_POLL_INTERVAL,
+                    )
+                    time.sleep(INJECTED_CLEANUP_POLL_INTERVAL)
+                    continue
+                raise
 
 
 def _delete_dns_zone(zone_id, route53_client):
