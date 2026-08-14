@@ -5,7 +5,7 @@ locals {
 
 module "service-network" {
   source                  = "registry.infrahouse.com/infrahouse/service-network/aws"
-  version                 = "5.0.1"
+  version                 = "5.0.2"
   service_name            = "service-network"
   environment             = var.environment
   vpc_cidr_block          = "10.1.0.0/16"
