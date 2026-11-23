@@ -18,6 +18,16 @@ from pytest_infrahouse import plugin
 REVISION_COUNT = 13
 INACTIVE_REVISION_COUNT = 4
 SIBLING_REVISION_COUNT = 2
+# DeleteTaskDefinitions API limit. Kept separate from the plugin's constant so the
+# test's own cleanup does not depend on the code under test.
+DELETE_BATCH_SIZE = 10
+# Leftover revisions can be found by this tag if a test run's cleanup fails.
+TAGS = [
+    {
+        "key": "created_by_test",
+        "value": "infrahouse/pytest-infrahouse/test_cleanup_ecs_task_definitions",
+    }
+]
 
 
 @pytest.fixture()
@@ -29,7 +39,7 @@ def ecs_client(boto3_session, aws_region) -> BaseClient:
 
 def _register_revisions(ecs_client: BaseClient, family: str, count: int) -> List[str]:
     """
-    Register task definition revisions with a minimal container definition.
+    Register tagged task definition revisions with a minimal container definition.
 
     :param ecs_client: boto3 ECS client.
     :param family: Task definition family name.
@@ -42,6 +52,7 @@ def _register_revisions(ecs_client: BaseClient, family: str, count: int) -> List
             containerDefinitions=[
                 {"name": "main", "image": "busybox", "memory": 128, "essential": True}
             ],
+            tags=TAGS,
         )["taskDefinition"]["taskDefinitionArn"]
         for _ in range(count)
     ]
@@ -63,6 +74,29 @@ def _family_arns(ecs_client: BaseClient, family: str, status: str) -> List[str]:
         for arn in page["taskDefinitionArns"]
         if f":task-definition/{family}:" in arn
     ]
+
+
+def _delete_families(ecs_client: BaseClient, families: List[str]) -> None:
+    """
+    Delete every revision of the given families without using the code under test,
+    so a regression in the helper cannot also break the test's own cleanup.
+
+    A ``ClientError`` propagates. Raised from a ``finally`` block, Python chains it
+    to the test's original exception, and pytest reports both.
+
+    :param ecs_client: boto3 ECS client.
+    :param families: Task definition family names.
+    """
+    for family in families:
+        inactive_arns = _family_arns(ecs_client, family, "INACTIVE")
+        active_arns = _family_arns(ecs_client, family, "ACTIVE")
+        for arn in active_arns:
+            ecs_client.deregister_task_definition(taskDefinition=arn)
+        arns = active_arns + inactive_arns
+        for start in range(0, len(arns), DELETE_BATCH_SIZE):
+            ecs_client.delete_task_definitions(
+                taskDefinitions=arns[start : start + DELETE_BATCH_SIZE]
+            )
 
 
 def test_cleanup_deletes_family_and_keeps_sibling(ecs_client):
@@ -97,10 +131,9 @@ def test_cleanup_deletes_family_and_keeps_sibling(ecs_client):
         assert _family_arns(ecs_client, sibling_family, "INACTIVE") == []
 
     finally:
-        # No-op for the family when the test passed; cleans up whatever is left
-        # if it failed half-way.
-        plugin._cleanup_ecs_task_definitions(ecs_client, family)
-        plugin._cleanup_ecs_task_definitions(ecs_client, sibling_family)
+        # Deletes the sibling, and whatever is left of the family if the test
+        # failed half-way.
+        _delete_families(ecs_client, [family, sibling_family])
 
 
 def test_cleanup_missing_family(ecs_client, caplog):

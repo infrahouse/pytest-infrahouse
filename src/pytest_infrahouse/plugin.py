@@ -642,8 +642,9 @@ def _list_task_definition_arns(
     """
     List all task definition revisions of exactly one family.
 
-    ``familyPrefix`` is a prefix match (``github-backup`` also matches
-    ``github-backup-replica``), so revisions of other families are filtered out.
+    ECS treats ``familyPrefix`` as the full family name, so ``github-backup`` does
+    not return ``github-backup-replica`` revisions. The exact-family filter is a
+    guard in case that ever changes: this helper deletes what it lists.
 
     :param ecs_client: boto3 ECS client.
     :param family: Task definition family name.
