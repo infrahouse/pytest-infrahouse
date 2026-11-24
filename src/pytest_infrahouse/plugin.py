@@ -7,10 +7,12 @@ from importlib.resources import as_file, files
 from os import path as osp
 from pathlib import Path
 from textwrap import dedent
+from typing import List
 
 import boto3
 import pytest
 from botocore.client import BaseClient
+from botocore.config import Config
 from botocore.credentials import RefreshableCredentials
 from botocore.exceptions import ClientError
 from botocore.session import Session as BotocoreSession
@@ -24,6 +26,12 @@ LOG = logging.getLogger()
 # GuardDuty endpoint ENIs can take several minutes to detach after the endpoint is deleted.
 INJECTED_CLEANUP_TIMEOUT = 900
 INJECTED_CLEANUP_POLL_INTERVAL = 10
+
+# Deleting a family with dozens of revisions exceeds the ECS control-plane rate limit.
+# Adaptive mode backs off and rate-limits the client after the first ThrottlingException.
+ECS_CLIENT_CONFIG = Config(retries={"mode": "adaptive", "max_attempts": 10})
+# DeleteTaskDefinitions accepts at most 10 ARNs per call.
+ECS_DELETE_TASK_DEFINITIONS_BATCH_SIZE = 10
 
 
 def pytest_addoption(parser):
@@ -617,6 +625,104 @@ def _cleanup_dns_zone(zone_id, route53_client):
             raise e
 
 
+def _task_definition_family(task_definition_arn: str) -> str:
+    """
+    Extract the family name from an ECS task definition ARN.
+
+    :param task_definition_arn: Task definition ARN, e.g.
+        ``arn:aws:ecs:us-west-2:123456789012:task-definition/my-family:7``.
+    :return: The family name, e.g. ``my-family``.
+    """
+    return task_definition_arn.partition("task-definition/")[2].rpartition(":")[0]
+
+
+def _list_task_definition_arns(
+    ecs_client: BaseClient, family: str, status: str
+) -> List[str]:
+    """
+    List all task definition revisions of exactly one family.
+
+    ECS treats ``familyPrefix`` as the full family name, so ``github-backup`` does
+    not return ``github-backup-replica`` revisions. The exact-family filter is a
+    guard in case that ever changes: this helper deletes what it lists.
+
+    :param ecs_client: boto3 ECS client.
+    :param family: Task definition family name.
+    :param status: Revision status to list, ``ACTIVE`` or ``INACTIVE``.
+    :return: ARNs of the family's revisions in the given status.
+    """
+    paginator = ecs_client.get_paginator("list_task_definitions")
+    return [
+        arn
+        for page in paginator.paginate(familyPrefix=family, status=status)
+        for arn in page["taskDefinitionArns"]
+        if _task_definition_family(arn) == family
+    ]
+
+
+def _cleanup_ecs_task_definitions(ecs_client: BaseClient, family: str) -> None:
+    """
+    Deregister and delete all revisions of an ECS task definition family.
+
+    ACTIVE revisions are deregistered first; INACTIVE ones already are.
+    Then all revisions are deleted in batches of
+    ``ECS_DELETE_TASK_DEFINITIONS_BATCH_SIZE``.
+
+    Cleanup failures don't raise: if a call still fails after the client's
+    retries, a warning names the revisions left behind. They are INACTIVE or
+    ACTIVE task definitions, which cost nothing, and a cleanup error
+    shouldn't fail a test session whose tests passed.
+
+    :param ecs_client: boto3 ECS client. Create it with ``ECS_CLIENT_CONFIG``
+        so throttled calls are retried.
+    :param family: Task definition family name. Only revisions of exactly
+        this family are deleted.
+    """
+    LOG.info("Cleaning up task definitions of family %s", family)
+    try:
+        active_arns = _list_task_definition_arns(ecs_client, family, "ACTIVE")
+        inactive_arns = _list_task_definition_arns(ecs_client, family, "INACTIVE")
+    except ClientError as err:
+        LOG.warning(
+            "Failed to list task definitions of family %s, leaving them behind: %s",
+            family,
+            err,
+        )
+        return
+
+    # Revisions that are not deleted yet, in the order they are deleted.
+    remaining = active_arns + inactive_arns
+    try:
+        for arn in active_arns:
+            ecs_client.deregister_task_definition(taskDefinition=arn)
+            LOG.info("Deregistered task definition %s", arn)
+
+        while remaining:
+            batch = remaining[:ECS_DELETE_TASK_DEFINITIONS_BATCH_SIZE]
+            response = ecs_client.delete_task_definitions(taskDefinitions=batch)
+            for task_definition in response.get("taskDefinitions", []):
+                LOG.info(
+                    "Deleted task definition %s", task_definition["taskDefinitionArn"]
+                )
+            for failure in response.get("failures", []):
+                LOG.warning(
+                    "Failed to delete task definition %s of family %s: %s (detail: %s)",
+                    failure.get("arn"),
+                    family,
+                    failure.get("reason"),
+                    failure.get("detail"),
+                )
+            remaining = remaining[len(batch) :]
+
+    except ClientError as err:
+        LOG.warning(
+            "Failed to clean up task definitions of family %s: %s. Left behind: %s",
+            family,
+            err,
+            ", ".join(remaining),
+        )
+
+
 @pytest.fixture(scope="session")
 def cleanup_ecs_task_definitions(boto3_session, aws_region, keep_after):
     """Fixture to track and cleanup ECS task definitions created during tests."""
@@ -631,21 +737,8 @@ def cleanup_ecs_task_definitions(boto3_session, aws_region, keep_after):
 
     # Cleanup: Deregister and delete all task definitions for tracked families
     if task_families and not keep_after:
-        ecs = boto3_session.client("ecs", region_name=aws_region)
-        for family in task_families:
-            LOG.info(f"Cleaning up task definitions for family: {family}")
-
-            # Collect all task definitions (ACTIVE and INACTIVE)
-            all_task_defs = []
-            for status in ["ACTIVE", "INACTIVE"]:
-                response = ecs.list_task_definitions(
-                    familyPrefix=family, status=status, sort="DESC"
-                )
-                all_task_defs.extend(response.get("taskDefinitionArns", []))
-
-            # Deregister and delete each task definition
-            for task_def_arn in all_task_defs:
-                ecs.deregister_task_definition(taskDefinition=task_def_arn)
-                LOG.info(f"Deregistered task definition: {task_def_arn}")
-                ecs.delete_task_definitions(taskDefinitions=[task_def_arn])
-                LOG.info(f"Deleted task definition: {task_def_arn}")
+        ecs = boto3_session.client(
+            "ecs", region_name=aws_region, config=ECS_CLIENT_CONFIG
+        )
+        for family in sorted(task_families):
+            _cleanup_ecs_task_definitions(ecs, family)
