@@ -5,7 +5,7 @@ locals {
 
 module "elasticsearch" {
   source  = "registry.infrahouse.com/infrahouse/elasticsearch/aws"
-  version = "5.1.1"
+  version = "5.3.1"
   providers = {
     aws     = aws
     aws.dns = aws
