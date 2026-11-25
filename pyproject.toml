@@ -57,3 +57,10 @@ where = ["src"]
 [tool.setuptools.package-data]
 "*" = ["data"]
 "pytest_infrahouse.data" = ["*"]
+
+[tool.isort]
+# Same wrapping and line length as black (88 columns), so the two formatters agree.
+profile = "black"
+# Skip what .gitignore excludes, like the .terraform module caches that terraform init
+# creates in src/pytest_infrahouse/data/<fixture>/. black already skips them.
+skip_gitignore = true
